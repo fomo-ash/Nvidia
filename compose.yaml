@@ -1,0 +1,60 @@
+name: fixproof
+services:
+  db:
+    image: postgres:16.9-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fixproof}
+      POSTGRES_USER: ${POSTGRES_USER:-fixproof}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    networks: [fixproof]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+  api:
+    build: { context: ./apps/api }
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://fixproof:change-me-local-only@db:5432/fixproof}
+    depends_on: { db: { condition: service_healthy } }
+    ports: ["8000:8000"]
+    networks: [fixproof]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+  web:
+    build:
+      context: ./apps/web
+      args:
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-http://localhost:8000}"
+    depends_on: { api: { condition: service_healthy } }
+    ports: ["5173:80"]
+    networks: [fixproof]
+    restart: unless-stopped
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
+    volumes: ["./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+    networks: [fixproof]
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes: ["./infra/grafana/provisioning:/etc/grafana/provisioning:ro"]
+    ports: ["3000:3000"]
+    networks: [fixproof]
+    restart: unless-stopped
+networks:
+  fixproof: { driver: bridge }
+volumes:
+  postgres_data:
