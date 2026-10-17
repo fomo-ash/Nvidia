@@ -1,5 +1,8 @@
 import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 export default [
+  { ignores: ["dist/**"] },
   js.configs.recommended,
-  { languageOptions: { globals: { document: "readonly", fetch: "readonly" } }, ignores: ["dist/**"] },
+  ...tseslint.configs.recommended,
+  { files: ["src/**/*.{ts,tsx}"], languageOptions: { globals: { document: "readonly", fetch: "readonly" } } },
 ];
