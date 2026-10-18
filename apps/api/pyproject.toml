@@ -6,14 +6,13 @@ dependencies = ["alembic==1.16.5", "fastapi==0.116.1", "prometheus-client==0.22.
 [build-system]
 requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
+[project.optional-dependencies]
+dev = ["httpx==0.28.1", "pytest==8.4.1", "ruff==0.12.9"]
 [tool.setuptools.packages.find]
 include = ["app*"]
-[dependency-groups]
-dev = ["httpx==0.28.1", "pytest==8.4.1", "pytest-asyncio==1.1.0", "ruff==0.12.9"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-lint.ignore = ["E701", "E702"]
