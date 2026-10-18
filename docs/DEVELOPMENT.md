@@ -1,5 +1,39 @@
 # Development
 
-Copy `.env.example` to `.env` and replace local-only placeholder passwords. Use `make setup`, `make up`, `make migrate`, and `make seed`. `make dev` is foreground Compose; `make test` and `make lint` run containerized checks. The UI runs at 5173 and API docs at 8000/docs.
+## Container workflow
 
-Use Python 3.12+ and Node 22 if running outside containers. The local identity `local-demo-user` is explicitly not production authentication. Do not place cloud credentials in `.env` for the deterministic MVP.
+Copy .env.example to .env once, then use `docker compose up --build --wait --wait-timeout 180`. Migrations run before API startup. Run `docker compose run --rm api python -m app.seed` for the sample incident. All published ports bind to loopback.
+
+Runtime and development images are separate. Check containers need no .env, cloud keys, or running application stack:
+
+```powershell
+docker compose -f compose.checks.yaml run --build --rm api-checks
+docker compose -f compose.checks.yaml run --build --rm api-postgres-checks
+docker compose -f compose.checks.yaml run --build --rm web-checks
+docker compose -f compose.checks.yaml run --build --rm api-checks ruff check app tests scripts alembic
+docker compose -f compose.checks.yaml run --build --rm api-checks ruff format --check app tests scripts alembic
+docker compose -f compose.checks.yaml run --build --rm web-checks pnpm lint
+docker compose -f compose.checks.yaml run --build --rm web-checks pnpm typecheck
+docker compose -f compose.checks.yaml run --build --rm api-checks python scripts/export_openapi.py --check
+docker compose -f compose.checks.yaml run --build --rm web-checks pnpm contracts:check
+```
+
+The checks project has its own PostgreSQL container/network and never publishes a database port. Tests migrate its disposable fixproof_test database up/down. SQLite runs skip PostgreSQL-only concurrency tests. Stop checks with `docker compose -f compose.checks.yaml --profile checks down`; add `-v` only to discard this test project's disposable volumes. The profile flag ensures the profiled test database is included in cleanup.
+
+Make aliases: `make up`, `make migrate`, `make seed`, `make test`, `make lint`, `make contracts`, `make down`. Make is optional on Windows.
+
+## Host development
+
+Use Python 3.12+ (CI/runtime use 3.13), Node 22.12+ (container/CI use 22.19), and pnpm 10.15.1. Install the project in a virtual environment with `python -m pip install -e "apps/api[dev]"`. From the repository root run `pnpm install --frozen-lockfile`.
+
+Set DATABASE_URL deliberately for host execution: Compose's hostname db resolves only inside its network. Without an environment file, the API defaults to a persistent local SQLite file. From apps/api run `alembic upgrade head`, `python -m app.seed`, and `uvicorn app.main:app --reload`. Set LLM_PROVIDER=mock. No cloud credentials are needed.
+
+Frontend commands from the root: `pnpm --filter @fixproof/web dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`.
+
+After API contract changes, run `python apps/api/scripts/export_openapi.py`, then `pnpm contracts:generate`. Commit both generated artifacts. CI detects drift.
+
+## Verification boundaries
+
+SQLite checks API behavior, source arithmetic, migration compatibility, and provider validation. PostgreSQL adds production-dialect migrations and actual concurrent request tests. Component tests exercise loading, rendering, failure/retry, and client errors/cancellation. The stack smoke test uses HTTP across the built runtime services and checks SPA deep links.
+
+These do not prove real workload recovery, external AI quality, AWS cost ingestion, authentication, or isolated remediation. Those belong to the next implementation phases.

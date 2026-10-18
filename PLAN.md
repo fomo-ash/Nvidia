@@ -89,7 +89,7 @@ Objective: introduce a reproducible incident with bounded, attributable evidence
 - Tests: metric assertions, evidence normalization tests, no unbounded log ingestion.
 - Risks: malicious/instruction-like log content. Mitigation: label all artifacts as untrusted data.
 
-### Phase 5 — AI-assisted investigation — NOT STARTED
+### Phase 5 — AI-assisted investigation — IN PROGRESS
 
 Objective: offer useful but constrained investigation support.
 
@@ -100,7 +100,7 @@ Objective: offer useful but constrained investigation support.
 - Tests: invalid JSON, schema mismatch, missing evidence, prompt injection text, provider timeout/fallback.
 - Dependency: normalized evidence schema from Phase 4.
 
-### Phase 6 — Safe remediation and verification — NOT STARTED
+### Phase 6 — Safe remediation and verification — IN PROGRESS
 
 Objective: make the mutation path backend-enforced and demonstrably safe.
 
