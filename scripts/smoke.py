@@ -21,9 +21,7 @@ def request(path, payload=None, *, expected=200, base="http://localhost:8000"):
         response = error
     with response:
         if response.status != expected:
-            raise RuntimeError(
-                f"{method} {path}: expected {expected}, got {response.status}"
-            )
+            raise RuntimeError(f"{method} {path}: expected {expected}, got {response.status}")
         raw = response.read()
         return (
             json.loads(raw)
@@ -61,10 +59,7 @@ def main():
     proposal = request(path + "/investigate", {})
     assert request(path + "/evidence") == proposal["evidence"]
     approval = f"/api/v1/recommendations/{proposal['id']}/approve"
-    assert (
-        request(approval, {"proposal_hash": proposal["proposal_hash"]})["status"]
-        == "approved"
-    )
+    assert request(approval, {"proposal_hash": proposal["proposal_hash"]})["status"] == "approved"
     request(approval, {"proposal_hash": proposal["proposal_hash"]}, expected=409)
     assert request(path + "/investigate", {})["version"] == 2
     report = request("/api/v1/cost-analyses")[0]
