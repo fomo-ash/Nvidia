@@ -1,13 +1,13 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev up down logs migrate seed test lint clean reset-data
+.PHONY: help setup dev up down logs migrate seed test lint contracts clean reset-data
 help:
-	@echo "Targets: setup dev up down logs migrate seed test lint clean reset-data"
+	@echo "Targets: setup dev up down logs migrate seed test lint contracts clean reset-data"
 setup:
 	@docker compose pull
 dev:
 	@docker compose up --build
 up:
-	@docker compose up --build -d
+	@docker compose up --build --wait --wait-timeout 180
 down:
 	@docker compose down
 logs:
@@ -17,9 +17,17 @@ migrate:
 seed:
 	@docker compose run --rm api python -m app.seed
 test:
-	@docker compose run --rm api pytest && docker compose run --rm web pnpm test --run
+	@docker compose -f compose.checks.yaml run --build --rm api-checks
+	@docker compose -f compose.checks.yaml run --build --rm api-postgres-checks
+	@docker compose -f compose.checks.yaml run --build --rm web-checks
 lint:
-	@docker compose run --rm api ruff check . && docker compose run --rm web pnpm lint && docker compose run --rm web pnpm typecheck
+	@docker compose -f compose.checks.yaml run --build --rm api-checks ruff check app tests scripts alembic
+	@docker compose -f compose.checks.yaml run --build --rm api-checks ruff format --check app tests scripts alembic
+	@docker compose -f compose.checks.yaml run --build --rm web-checks pnpm lint
+	@docker compose -f compose.checks.yaml run --build --rm web-checks pnpm typecheck
+contracts:
+	@docker compose -f compose.checks.yaml run --build --rm api-checks python scripts/export_openapi.py --check
+	@docker compose -f compose.checks.yaml run --build --rm web-checks pnpm contracts:check
 clean:
 	@docker compose down
 	@echo "Stopped containers and networks. Persistent database volume was preserved."

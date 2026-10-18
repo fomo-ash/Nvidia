@@ -1,0 +1,12 @@
+{
+  "uid": "fixproof-api",
+  "title": "FixProof API foundation",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "stat", "title": "API scrape health", "gridPos": {"x": 0, "y": 0, "w": 8, "h": 6}, "datasource": {"type": "prometheus", "uid": "fixproof-prometheus"}, "targets": [{"refId": "A", "expr": "up{job=\"fixproof-api\"}"}]},
+    {"id": 2, "type": "timeseries", "title": "API process memory (bytes)", "gridPos": {"x": 8, "y": 0, "w": 16, "h": 8}, "datasource": {"type": "prometheus", "uid": "fixproof-prometheus"}, "targets": [{"refId": "A", "expr": "process_resident_memory_bytes{job=\"fixproof-api\"}"}]}
+  ]
+}

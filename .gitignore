@@ -11,3 +11,8 @@ playwright-report/
 test-results/
 *.db
 *.sqlite
+*.db-*
+*.sqlite-*
+*.egg-info/
+.ruff_cache/
+*.tsbuildinfo
