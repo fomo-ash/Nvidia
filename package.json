@@ -1,0 +1,14 @@
+{
+  "name": "fixproof",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "build": "pnpm --filter @fixproof/web build",
+    "lint": "pnpm --filter @fixproof/web lint",
+    "typecheck": "pnpm --filter @fixproof/web typecheck",
+    "test": "pnpm --filter @fixproof/web test --run",
+    "contracts:generate": "pnpm --filter @fixproof/web contracts:generate",
+    "contracts:check": "pnpm --filter @fixproof/web contracts:check"
+  }
+}
