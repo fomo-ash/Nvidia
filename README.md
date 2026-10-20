@@ -2,7 +2,7 @@
 
 FixProof is an AI-assisted DevOps and Cloud Operations Assistant for small teams. The intended workflow connects incident evidence, likely causes, a bounded proposed fix, testing where practical, human approval, controlled execution, and independently measured recovery. Cloud Cost Autopsy explains spending changes from billing records and labels potential savings as estimates.
 
-The current foundation runs locally with synthetic evidence and billing data. It requires no AWS credentials or external model key. It supports incident records, retained demo investigations, versioned proposal review, approval/rejection, audit history, and sample cost calculations. Infrastructure execution and recovery verification are not implemented yet.
+The current foundation runs locally with synthetic evidence and billing data. It requires no AWS credentials or external model key. Phase 2 adds normalized investigations/evidence, durable approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. The operations adapter is intentionally unconfigured: an execution attempt records an explicit unavailable failure and never mutates infrastructure. Actual workload actions and recovery measurement remain later-phase work.
 
 ## Run locally
 
@@ -54,6 +54,7 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 - `infra`: Prometheus and provisioned Grafana configuration.
 - `scripts/smoke.py`: HTTP smoke check of the running stack.
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md): phase status and foundation work.
+- [Phase 2 handoff](docs/PHASE_2_HANDOFF.md): backend acceptance evidence, safety boundaries and review gates.
 - [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
 
 The next product milestone is a reproducible monitored workload, followed by grounded investigation, isolated fix testing, controlled execution, and independent verification. AWS, Terraform, Kubernetes, external AI, and messaging integrations remain planned adapters.

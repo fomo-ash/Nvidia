@@ -34,6 +34,8 @@ After API contract changes, run `python apps/api/scripts/export_openapi.py`, the
 
 ## Verification boundaries
 
-SQLite checks API behavior, source arithmetic, migration compatibility, and provider validation. PostgreSQL adds production-dialect migrations and actual concurrent request tests. Component tests exercise loading, rendering, failure/retry, and client errors/cancellation. The stack smoke test uses HTTP across the built runtime services and checks SPA deep links.
+SQLite checks API behavior, source arithmetic/persistence, migration/backfill compatibility, role boundaries, audit immutability, lifecycle/idempotency rules, and provider validation. PostgreSQL adds production-dialect migrations, audit TRUNCATE protection, concurrent idempotent creates, competing execution requests, and duplicate requests during a pending action. Component tests exercise loading, rendering, failure/retry, and client errors/cancellation. The stack smoke test uses HTTP across the built runtime services, checks SPA deep links, creates a persisted sample cost report and records an explicit unavailable action attempt. It performs no infrastructure mutation.
+
+Root scripts use ruff.toml; the standalone API build uses the aligned settings in apps/api/pyproject.toml. Check both with `ruff check apps/api scripts` and `ruff format --check apps/api scripts` from the repository root. Build from a feature branch and use a pull request into main. Do not mark Phase 2 DONE before CI and required contract review pass; see PHASE_2_HANDOFF.md.
 
 These do not prove real workload recovery, external AI quality, AWS cost ingestion, authentication, or isolated remediation. Those belong to the next implementation phases.

@@ -12,7 +12,11 @@ The product scope follows the FixProof proposal: detect, investigate, explain, p
 - Replace placeholder tests with API/migration/provider/cost tests, PostgreSQL concurrency tests, frontend component/client tests, and an HTTP stack smoke script. CI runs supported runtimes, frozen installs, contracts, and built-container checks.
 - Provision an API-process Grafana dashboard and update runbooks to distinguish implemented behavior from planned capabilities.
 
-Remaining gates: CI has not been run on GitHub by this change; production authentication, normalized investigations/evidence, durable billing analyses, actual collectors, isolated remediation, execution/idempotency, and recovery verification remain unfinished. Phase status stays IN PROGRESS until its full acceptance criteria pass.
+The foundation verification below is historical. Phase 2 implementation is described in PHASE_2_HANDOFF.md. Production authentication, actual collectors, isolated remediation, real action/measurement adapters and pending-operation reconciliation remain later-phase work. A phase is DONE only after its full acceptance, CI and review gates pass.
+
+## Phase 2 implementation (2026-10-21)
+
+Branch: feat/phase-2-domain-api. Normalized investigations/evidence, separate approval decisions, execution/verification records and APIs, persisted billing reports/sources, integration status, cursor pagination, atomic actor/key idempotency and append-only audit guards are implemented. Migration 0003 preserves legacy records/evidence without inventing approval authority. The default operations adapter explicitly fails unavailable actions; no real infrastructure mutation is enabled. See PHASE_2_HANDOFF.md for acceptance evidence, rollback notes and review gates.
 
 ## Delivery phases
 
@@ -30,11 +34,11 @@ Verification record for foundation hardening:
 |---|---|---|---|
 | 0 Assessment & architecture | DONE | Member 1 | Repository assessed; architecture, ownership and contracts documented. |
 | 1 Runnable scaffold & Docker | IN PROGRESS | Member 3 | Compose, health endpoints, migration, monitoring, CI; acceptance: stack builds and health checks pass. |
-| 2 Database & APIs | IN PROGRESS | Member 1 | Full domain models/endpoints/state rules; acceptance: migration/API/invariant tests pass. |
+| 2 Database & APIs | READY FOR REVIEW | Member 1 | Lifecycle models/APIs/state rules implemented; local verification recorded in PHASE_2_HANDOFF.md. GitHub CI and contract review remain release gates. |
 | 3 Frontend workflow | IN PROGRESS | Member 4 | Operational pages and deterministic UI; acceptance: strict build/component/E2E tests pass. |
 | 4 Observability & evidence | NOT STARTED | Member 3 | Sample workload, bounded logs, reproducible fault; acceptance: alert/evidence demonstration. |
 | 5 AI investigation | IN PROGRESS | Member 2 | Bounded mock/provider boundary exists; external reasoning, evidence grounding and failure handling remain. |
-| 6 Safe remediation | IN PROGRESS | Member 1 | Version/digest/expiry approval checks exist; isolated tests, execution, idempotency and verification remain. |
+| 6 Safe remediation | IN PROGRESS | Member 1 | Lifecycle/idempotency/verification contracts exist; real adapters, isolated fix tests, pending-operation reconciliation and measured recovery remain. |
 | 7 Cloud Cost Autopsy | IN PROGRESS | Member 2 | Synthetic billing/calculations/explanations; acceptance: edge-case tests and charts. |
 | 8 Kind, security & demo | NOT STARTED | Member 3 | Kind adapter, hardened CI, E2E/runbook; acceptance: final controlled demo. |
 
