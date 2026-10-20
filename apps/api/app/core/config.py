@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     llm_provider: Literal["mock"] = "mock"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
     proposal_ttl_seconds: int = Field(default=900, ge=60, le=86400)
+    local_demo_enabled: bool = True
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
