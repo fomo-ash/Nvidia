@@ -2,10 +2,20 @@ from datetime import datetime
 from uuid import UUID
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from app.core.time import utc
 
 
-class EvidenceOut(BaseModel):
+class RecordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("*", mode="after")
+    @classmethod
+    def utc_timestamps(cls, value):
+        return utc(value) if isinstance(value, datetime) else value
+
+
+class EvidenceOut(RecordOut):
     model_config = ConfigDict(extra="forbid")
     source: str = Field(min_length=1, max_length=200)
     observed_at: datetime
@@ -21,18 +31,28 @@ class IncidentCreate(BaseModel):
     summary: str = Field(min_length=3, max_length=20000)
 
 
-class IncidentOut(IncidentCreate):
+class IncidentOut(IncidentCreate, RecordOut):
     id: UUID
     status: str
     created_at: datetime
     model_config = {"from_attributes": True}
 
 
-class RecommendationOut(BaseModel):
+class RecommendationOut(RecordOut):
     id: UUID
     incident_id: UUID
+    investigation_id: UUID | None
     version: int
-    status: Literal["proposed", "approved", "rejected", "superseded"]
+    status: Literal[
+        "proposed",
+        "approved",
+        "rejected",
+        "superseded",
+        "executed",
+        "execution_failed",
+        "verified",
+        "verification_failed",
+    ]
     action: str
     target: str
     parameters: dict
@@ -52,7 +72,7 @@ class DecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class AuditEventOut(BaseModel):
+class AuditEventOut(RecordOut):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     entity_type: str
@@ -63,7 +83,7 @@ class AuditEventOut(BaseModel):
     created_at: datetime
 
 
-class TimelineOut(BaseModel):
+class TimelineOut(RecordOut):
     at: datetime
     event: str
     details: dict

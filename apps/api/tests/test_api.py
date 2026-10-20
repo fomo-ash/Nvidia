@@ -16,13 +16,17 @@ def test_liveness_readiness_and_metrics(client):
 def test_readiness_detects_outdated_schema(client, database):
     factory, _, _ = database
     with factory() as db:
+        current_revision = db.scalar(text("SELECT version_num FROM alembic_version"))
         db.execute(text("UPDATE alembic_version SET version_num='0001_initial'"))
         db.commit()
     try:
         assert client.get("/health/ready").status_code == 503
     finally:
         with factory() as db:
-            db.execute(text("UPDATE alembic_version SET version_num='0002_proposal_integrity'"))
+            db.execute(
+                text("UPDATE alembic_version SET version_num=:revision"),
+                {"revision": current_revision},
+            )
             db.commit()
 
 
@@ -65,7 +69,11 @@ def test_evidence_is_retained_and_timeline_comes_from_audit(client, incident, pr
     assert client.get(path + "/evidence").json() == proposal["evidence"]
     assert proposal["evidence"][0]["mode"] == "synthetic"
     assert proposal["evidence"][0]["trusted"] is False
-    assert [e["event"] for e in client.get(path + "/timeline").json()] == ["created", "proposed"]
+    assert [e["event"] for e in client.get(path + "/timeline").json()] == [
+        "proposed",
+        "investigated",
+        "created",
+    ]
 
 
 def test_no_evidence_before_investigation(client, incident):
@@ -144,8 +152,9 @@ def test_rejection_is_final_and_missing_recommendation_returns_404(client, propo
     assert client.post(f"/api/v1/recommendations/{uuid4()}/reject", json={}).status_code == 404
 
 
-def test_cost_api_does_not_claim_persistence_or_measured_savings(client):
+def test_cost_api_persists_an_explicitly_synthetic_analysis(client):
     response = client.post("/api/v1/cost-analyses")
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json()["mode"] == "synthetic"
     assert response.json()["estimated_savings"]["amount"] == 525
+    assert client.get(f"/api/v1/cost-analyses/{response.json()['id']}").status_code == 200

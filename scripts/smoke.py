@@ -6,14 +6,14 @@ import urllib.error
 import urllib.request
 
 
-def request(path, payload=None, *, expected=200, base="http://localhost:8000"):
+def request(path, payload=None, *, expected=200, base="http://localhost:8000", headers=None):
     data = json.dumps(payload).encode() if payload is not None else None
     method = "POST" if payload is not None else "GET"
     req = urllib.request.Request(
         base + path,
         data=data,
         method=method,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **(headers or {})},
     )
     try:
         response = urllib.request.urlopen(req, timeout=10)
@@ -61,11 +61,36 @@ def main():
     approval = f"/api/v1/recommendations/{proposal['id']}/approve"
     assert request(approval, {"proposal_hash": proposal["proposal_hash"]})["status"] == "approved"
     request(approval, {"proposal_hash": proposal["proposal_hash"]}, expected=409)
-    assert request(path + "/investigate", {})["version"] == 2
-    report = request("/api/v1/cost-analyses")[0]
+    newer = request(path + "/investigate", {})
+    assert newer["version"] == 2
+    request(
+        f"/api/v1/recommendations/{newer['id']}/approve", {"proposal_hash": newer["proposal_hash"]}
+    )
+    execution_path = f"/api/v1/recommendations/{newer['id']}/execute"
+    execution_headers = {"Idempotency-Key": "smoke-" + newer["id"]}
+    execution = request(
+        execution_path,
+        {"proposal_hash": newer["proposal_hash"]},
+        expected=201,
+        headers=execution_headers,
+    )
+    assert execution["status"] == "failed" and execution["result"]["mutation_performed"] is False
+    assert (
+        request(
+            execution_path,
+            {"proposal_hash": newer["proposal_hash"]},
+            expected=201,
+            headers=execution_headers,
+        )["id"]
+        == execution["id"]
+    )
+    assert request(f"/api/v1/executions/{execution['id']}")["status"] == "failed"
+    report = request("/api/v1/cost-analyses", {}, expected=201)
+    assert request(f"/api/v1/cost-analyses/{report['id']}")["source_count"] == 3
+    assert len(request(f"/api/v1/cost-analyses/{report['id']}/records")) == 3
     assert report["total_cost"] == 2450 and report["estimated_savings"]["amount"] == 525
     print(
-        "Stack smoke passed: health, SPA routing, investigation, evidence, exact approval, versioning, costs."
+        "Stack smoke passed: health, SPA routing, normalized investigation, exact approval, idempotent unavailable execution, and persisted sample costs. No infrastructure mutation occurred."
     )
 
 
