@@ -58,11 +58,11 @@ Objective: make one developer command start the local development foundation.
 - Tests: Compose config, image builds, startup/readiness smoke test, migration run.
 - Risks: host Docker/registry permissions. Mitigation: document prerequisites and keep all build steps containerized.
 
-### Phase 2 — Database and APIs — READY FOR REVIEW
+### Phase 2 — Database and APIs — DONE
 
 Objective: represent the full operational lifecycle with durable, constrained state.
 
-Implementation is on feat/phase-2-domain-api; see docs/PHASE_2_HANDOFF.md for completed backend scope and acceptance results. CI and required owner/contract review remain gates before DONE. Real action/measurement adapters and isolated testing remain Phase 6 work; the Phase 2 default adapter records unavailable failure and performs no infrastructure action.
+Implemented on feat/phase-2-domain-api; see docs/PHASE_2_HANDOFF.md for completed backend scope and acceptance results. CI and required owner/contract review completion were confirmed by the project owner. Real action/measurement adapters and isolated testing remain Phase 6 work; the Phase 2 default adapter records unavailable failure and performs no infrastructure action.
 
 - Member 1: add investigations, evidence items, approvals, executions, verification results, cost analyses, and cost records.
 - Add migrations with indexes, foreign keys, check constraints, UUIDs, append-only audit events, pagination, idempotency keys, and consistent errors.

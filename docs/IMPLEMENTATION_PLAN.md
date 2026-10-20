@@ -34,7 +34,7 @@ Verification record for foundation hardening:
 |---|---|---|---|
 | 0 Assessment & architecture | DONE | Member 1 | Repository assessed; architecture, ownership and contracts documented. |
 | 1 Runnable scaffold & Docker | IN PROGRESS | Member 3 | Compose, health endpoints, migration, monitoring, CI; acceptance: stack builds and health checks pass. |
-| 2 Database & APIs | READY FOR REVIEW | Member 1 | Lifecycle models/APIs/state rules implemented; local verification recorded in PHASE_2_HANDOFF.md. GitHub CI and contract review remain release gates. |
+| 2 Database & APIs | DONE | Member 1 | Lifecycle models/APIs/state rules implemented; local verification recorded in PHASE_2_HANDOFF.md. CI and required review completion confirmed by the project owner. |
 | 3 Frontend workflow | IN PROGRESS | Member 4 | Operational pages and deterministic UI; acceptance: strict build/component/E2E tests pass. |
 | 4 Observability & evidence | NOT STARTED | Member 3 | Sample workload, bounded logs, reproducible fault; acceptance: alert/evidence demonstration. |
 | 5 AI investigation | IN PROGRESS | Member 2 | Bounded mock/provider boundary exists; external reasoning, evidence grounding and failure handling remain. |

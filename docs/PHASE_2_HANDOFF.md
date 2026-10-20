@@ -28,7 +28,7 @@ Verified locally on 2026-10-21:
 
 Container acceptance suites used the built pinned Python 3.13 development image with the current backend mounted read-only; this avoided repeating dependency downloads while testing the exact branch source. The HTTP run used that same current source and the normal Alembic/Uvicorn startup sequence. The existing five-service/Grafana smoke was not rerun as part of this backend phase.
 
-Phase 2 is READY FOR REVIEW. It can be marked DONE only after the branch's GitHub CI passes and the required owner/cross-contract review is complete. Local implementation and testing do not substitute for that review.
+Phase 2 is DONE. CI and required owner/cross-contract review completion were confirmed by the project owner when requesting this status update. The local acceptance evidence is recorded above; CI and review were not independently rechecked for this documentation update.
 
 ## Intentional limits
 
