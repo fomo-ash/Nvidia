@@ -16,3 +16,16 @@ This runbook demonstrates the current synthetic foundation. It does not demonstr
 The next real demo must introduce a monitored workload fault, gather attributable evidence, test a bounded fix where practical, obtain approval, execute through a controlled adapter, and retain independent before/after measurements. Failed tests and verification must remain visible.
 
 For the Phase 2 lifecycle contract, investigate/approve a fresh proposal and call POST /api/v1/recommendations/{id}/execute with the reviewed proposal_hash and a unique Idempotency-Key header. The default adapter returns a persisted failed attempt with mutation_performed=false; this is the expected unavailable result, not a successful fix. Repeat the exact request/key and confirm the same execution ID is replayed. GET /executions/{id} retains that outcome; verification of the failed attempt returns 409. Tests inject synthetic adapters to validate successful, failed and inconclusive independent verification paths. Do not present those test doubles as a live recovery demonstration.
+
+## Planned MVP acceptance run
+
+These are release steps to implement, not commands that exist today. The [initial incident](INITIAL_INCIDENT.md) defines the fault and thresholds; [incident intake](INCIDENT_INTAKE.md) defines the reporting contract.
+
+1. From a clean checkout, start Compose, create the pinned kind cluster, deploy the known-good sample app, and register its trusted pod template. Confirm API, MCP, kind, Prometheus, and Nebius readiness without exposing credentials.
+2. Generate baseline traffic and verify `/healthz` and sample metrics. Inject `FAIL_MODE=on` as a new Deployment revision; confirm functional failure and a 60-second window with at least 20 requests and more than 20% 5xx.
+3. Report the exact registered workload as the local operator. Inspect retained metric, rollout, pod, event, bounded log, and direct-probe evidence with source times/IDs. Confirm Nemotron's diagnosis cites only stored evidence and states gaps.
+4. Review and explicitly approve the exact restore proposal. Execute once through MCP. Retry the same idempotency key and confirm no second mutation. Inspect the audit, preflight snapshot, and Kubernetes revision.
+5. Verify against a fresh restored rollout, three successful `/healthz` probes, and a post-action 60-second window with at least 20 requests and less than 1% 5xx. The report must show measured readings and timestamps before saying `verified`.
+6. Repeat from reset. Reject a proposal and show denied execution. Also demonstrate a patch that does not recover the app, or missing metrics, producing `verification_failed` or `inconclusive` rather than success.
+
+The acceptance record includes exact commands, evidence IDs, provider/model, proposal hash, approval actor/time, execution ID, and verification readings. Redact secrets. Existing synthetic cost and operations demonstrations remain separate from this real recovery run.

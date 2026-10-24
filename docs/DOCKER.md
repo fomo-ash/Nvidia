@@ -20,4 +20,10 @@ During local verification on 2026-10-18, Docker recovered from its earlier start
 docker compose --parallel 1 up --build --wait --wait-timeout 180 db api web prometheus
 ```
 
-This command is useful for isolating monitoring-image download failures. It does not start or verify Grafana, and `scripts/smoke.py` still requires all five services. Do not treat a partial-stack check as a full smoke-test pass. The exact remaining image-download failure is recorded in IMPLEMENTATION_PLAN.md.
+This command is useful for isolating monitoring-image download failures. It does not start or verify Grafana, and `scripts/smoke.py` still requires all five services. Do not treat a partial-stack check as a full smoke-test pass. Phase 0 of the [implementation plan](IMPLEMENTATION_PLAN.md) requires a new full-stack check.
+
+## Planned kind and MCP topology
+
+Keep Compose as the local packaging entry point for the existing five services and one future FixProof MCP server. kind runs the sample app in `fixproof-demo`. Prometheus and the verifier need a documented host-mapped sample endpoint; MCP needs a restricted Kubernetes API credential whose server address is reachable **from inside its container**. On Docker Desktop this can use the published kind API endpoint through `host.docker.internal`; document the equivalent Linux host-gateway mapping. Test both paths during bootstrap.
+
+Only MCP receives the namespace-scoped Kubernetes credential. Only API receives the Nebius key. Keep MCP on the internal Compose network without a public listener, keep developer ports on loopback, and leave generated kubeconfigs and database data out of Git. Nebius inference requires outbound HTTPS, while local history and manual inspection should remain available when it is offline.

@@ -39,3 +39,14 @@ SQLite application connections enable foreign keys. PostgreSQL tests use a separ
 ## Rollback
 
 Back up/export Phase 2 data before downgrading. Downgrading 0003 removes its normalized lifecycle, billing, and idempotency tables and audit guards. Original recommendation evidence JSON and audit history remain. New execution/verification recommendation states become superseded so the older state constraint remains valid. Downgrade is a compatibility escape hatch, not a lossless rollback of Phase 2 records.
+
+## Proposed migrations for the kind incident
+
+Keep `0001`–`0003` and their historical data intact. Add incremental migrations at the phase that first needs each field; test upgrade, downgrade, and legacy-row behavior against an isolated PostgreSQL database.
+
+1. **Incident intake:** extend `incidents` with registered target cluster/namespace/kind/name/UID, symptom fingerprint, lifecycle, and symptom assessment. Add immutable `incident_triggers` with source (`manual` or later `prometheus`), source/server times, reporter or rule ID, normalized measurements, payload hash, and a unique idempotency key. Existing seeded rows remain labeled synthetic and cannot be promoted to verified target incidents without a new trigger.
+2. **Real evidence:** extend `investigations` and `evidence_items` with target UID, metric/log window, bounded redacted payload or local reference, redaction marker, and per-source collection error. Retain current stable evidence IDs, source/time/hash/trust fields and historical synthetic rows.
+3. **Exact Kubernetes proposal:** extend `recommendations`/`approvals` with expected bad resource version/template hash, trusted desired good template hash, and exact target UID. Preserve existing proposal digest/version/expiry and approval decisions; changed payloads become new versions.
+4. **Real action and measurement:** extend `executions` with preflight snapshot and MCP action metadata, and `verification_results` with fresh rollout, probe, metric window, thresholds, values, and reason. Preserve the current pending-claim/idempotency model. Reconcile interrupted pending operations explicitly; a retry must not repeat an unknown infrastructure effect.
+
+The model never supplies the trusted known-good template. Store its provenance and hash during bootstrap before fault injection. Audit transitions remain append-only, and real evidence retains source and UTC observation times so every recovery verdict can be reconstructed.

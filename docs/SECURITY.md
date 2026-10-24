@@ -13,3 +13,13 @@ Execution/verification claims are committed before adapter invocation. Retries r
 SQLite/PostgreSQL audit UPDATE/DELETE operations are blocked by triggers; PostgreSQL TRUNCATE is also blocked. Administrative DB permissions and retention policy still need production hardening. A server-owned role resolver permits local operator writes and viewer reads; caller-supplied actors are rejected. LOCAL_DEMO_ENABLED=false denies application access until real authentication is implemented. Secrets, credentials, and raw unbounded logs must not be added to evidence or audit payloads.
 
 The intended trust boundaries are UI → API, evidence/provider output → validated domain service, and approved action → controlled executor. Do not expose the scaffold until authentication/authorization, secret handling, rate limits, durable job handling, and production deployment controls are implemented.
+
+## Additional gate before the kind mutation MVP
+
+The server-owned local demo actor is a useful internal role boundary but not proof that a particular human approved a fix. Before enabling the MCP mutation tool, bootstrap a local operator secret and short-lived authenticated session; protect browser writes from cross-site submission. For use beyond one machine, replace that with per-user authentication and authorization.
+
+Run one local FixProof MCP server with a namespace-scoped Kubernetes ServiceAccount for `fixproof-demo`. Read tools accept only registered targets, approved Prometheus query templates, bounded time windows, and capped logs. The only mutation tool restores the trusted captured pod template on the one sample Deployment. Neither the model nor browser receives MCP access, Kubernetes credentials, or the Nebius key. Do not mount the host's cluster-admin kubeconfig or Docker socket.
+
+Extend the existing exact-hash/expiry/approval check with the Deployment UID, resource version, current bad-template hash, desired trusted good-template hash, and a one-use signed execution capability. API and MCP both check scope and current state. A drifted target, expired approval, replay, or pending unknown outcome stops the action; never retry blindly. A successful patch remains an execution outcome until fresh rollout, health, and Prometheus measurements support recovery.
+
+Send Nebius only minimal redacted evidence excerpts with stored IDs. Logs, events, and model output remain untrusted data. Provider timeout or malformed/uncited output leaves the incident for manual review and cannot authorize execution. See the [phased gate](IMPLEMENTATION_PLAN.md) and [initial incident](INITIAL_INCIDENT.md).

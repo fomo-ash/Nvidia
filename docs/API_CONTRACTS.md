@@ -70,3 +70,21 @@ pnpm contracts:generate
 ```
 
 Checks: python apps/api/scripts/export_openapi.py --check and pnpm contracts:check. Contract export never connects to a database.
+
+## Proposed kind incident extensions
+
+These are **future contract changes**, not routes or fields in the current OpenAPI snapshot. Extend existing routes where possible and regenerate both `apps/api/openapi.json` and the frontend definitions before UI integration.
+
+| Existing or new route | Target behavior |
+|---|---|
+| `POST /incidents` (extend) | Accept the registered kind Deployment target and symptom with `Idempotency-Key`; record a manual trigger, return an existing open case when the target/symptom fingerprint matches, and queue collection. A submitted report begins `unassessed`, not confirmed. |
+| `GET /incidents/{id}` (extend), `GET /incidents/{id}/triggers` (new) | Expose target UID, lifecycle, symptom assessment, source and server times, and immutable trigger details. |
+| `POST /incidents/{id}/investigate` (extend) | Collect through the one MCP server and return/poll a run linked to immutable real evidence. Preserve the existing synthetic route's compatibility only while its mode is explicitly labeled. |
+| `GET /investigations/{id}`, `/evidence` (extend) | Include target UID, metric window, collection errors, redaction status, and stable evidence IDs for citations. |
+| `GET /recommendations/{id}` (extend) | Include the exact kind target, current bad template/resource version, trusted desired template hash, cited evidence IDs, and proposal hash/expiry. |
+| `POST /recommendations/{id}/approve` (extend) | Keep the existing reviewed `proposal_hash` contract; require the authenticated local operator session and exact target preconditions. |
+| `POST /recommendations/{id}/execute` (extend) | Keep required `Idempotency-Key`, durable claim, and one-attempt rule; call the guarded MCP action only after server and tool preflight. Return an execution record, never a recovery claim. |
+| `POST /executions/{id}/verify` (extend) | Keep required idempotency and separate record; gather fresh rollout, `/healthz`, and Prometheus readings after execution. |
+| `GET /integrations` (extend) | Report actual kind, MCP, Prometheus, and Nebius configuration/readiness separately without exposing secrets or fabricating connectivity. |
+
+Manual intake is required for the MVP; an optional Prometheus detector later uses the same internal intake service and labels its trigger `prometheus`. See [intake specification](INCIDENT_INTAKE.md). Until real collectors and adapters exist, the current endpoints remain synthetic or unavailable as stated above.

@@ -1,8 +1,8 @@
 # FixProof
 
-FixProof is an AI-assisted DevOps and Cloud Operations Assistant for small teams. The intended workflow connects incident evidence, likely causes, a bounded proposed fix, testing where practical, human approval, controlled execution, and independently measured recovery. Cloud Cost Autopsy explains spending changes from billing records and labels potential savings as estimates.
+FixProof is a local-first, self-hosted AI DevOps investigation and remediation assistant for solo developers and small teams. Its intended MVP accepts an incident in a local kind cluster, collects Prometheus and Kubernetes evidence through one controlled MCP server, investigates with NVIDIA Nemotron through Nebius Token Factory, requires exact human approval for a bounded fix, and independently verifies recovery. The UI, API, integrations, and incident history run locally; live AI inference needs internet access to Nebius. Verified remediation is the product goal.
 
-The current foundation runs locally with synthetic evidence and billing data. It requires no AWS credentials or external model key. Phase 2 adds normalized investigations/evidence, durable approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. The operations adapter is intentionally unconfigured: an execution attempt records an explicit unavailable failure and never mutates infrastructure. Actual workload actions and recovery measurement remain later-phase work.
+The current foundation runs locally with synthetic evidence and billing data, so it needs no AWS credentials or external model key. Phase 2 **implemented** normalized investigations/evidence, exact-hash approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. The operations adapter is intentionally unconfigured: an execution attempt records an explicit unavailable failure and never mutates infrastructure. There is no kind sample workload, MCP server, Nebius provider, or real recovery verification yet. The existing Cloud Cost Autopsy is a separate synthetic feature outside the first verified-remediation milestone.
 
 ## Run locally
 
@@ -53,8 +53,9 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 - `apps/web`: React operator console, generated API types, and component/client tests.
 - `infra`: Prometheus and provisioned Grafana configuration.
 - `scripts/smoke.py`: HTTP smoke check of the running stack.
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md): phase status and foundation work.
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md): ordered work packages and exit gates for the real incident MVP.
+- [Initial incident](docs/INITIAL_INCIDENT.md) and [incident intake](docs/INCIDENT_INTAKE.md): first fault and reporting contract.
 - [Phase 2 handoff](docs/PHASE_2_HANDOFF.md): backend acceptance evidence, safety boundaries and review gates.
 - [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
 
-The next product milestone is a reproducible monitored workload, followed by grounded investigation, isolated fix testing, controlled execution, and independent verification. AWS, Terraform, Kubernetes, external AI, and messaging integrations remain planned adapters.
+The next product milestone is a reproducible kind workload fault, followed by manual intake, real evidence, live Nemotron investigation, a scoped restore action, and measured verification. Optional GitHub context and broader cloud integrations follow that workflow.

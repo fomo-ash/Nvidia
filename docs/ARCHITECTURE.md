@@ -36,3 +36,29 @@ Runtime images exclude test tools. Separate development targets contain test dep
 Production authentication/project authorization, isolated candidate testing, pending-operation reconciliation/workers, real metrics/log/deployment collectors, and infrastructure/measurement adapters remain future work. A server-owned local role resolver provides the Phase 2 authorization boundary; it is not production login. LOCAL_DEMO_ENABLED=false fails application access closed until authentication is configured. At-most-one invocation through the API does not guarantee exactly-once delivery to an external infrastructure system.
 
 The target product sequence remains detect → investigate → explain → propose → test where practical → approve → execute → verify → report. This scaffold implements only part of that sequence and must not report an actual infrastructure change or recovered workload.
+
+## Target local kind MVP
+
+The first real incident is a deliberately faulty configuration in a new Deployment revision of the [sample application](INITIAL_INCIDENT.md). The MVP adds one local FixProof MCP server as the infrastructure boundary. The existing FastAPI lifecycle remains the policy and persistence owner; do not give Nemotron direct MCP access or move approval checks into the UI.
+
+```mermaid
+flowchart LR
+  Operator --> Web[Local React UI]
+  Web --> API[Local FastAPI policy/workflow]
+  API --> DB[(Local PostgreSQL history)]
+  API --> MCP[One local FixProof MCP server]
+  MCP --> K8S[kind Kubernetes API]
+  MCP --> PROM[Local Prometheus]
+  K8S --> Sample[Sample Deployment]
+  Sample --> PROM
+  API -->|bounded redacted evidence over HTTPS| Nebius[Nebius Token Factory / NVIDIA Nemotron]
+```
+
+1. Bootstrap a known-good pod template and record its hash in trusted local baseline state. Fault injection creates a new revision with `FAIL_MODE=on`; `/api/work` returns 5xx and functional `/healthz` fails while `/readyz` keeps traffic flowing.
+2. An authenticated local operator reports the registered target. The API records a trigger and queues investigation. Optional metric detection may later enter the same intake service.
+3. MCP read tools collect capped Prometheus windows, Deployment/ReplicaSet/pod state, events, logs, and a direct probe. Extend existing evidence records with target identity, window, collection error, and redaction metadata. The model receives only stored evidence IDs and sanitized excerpts.
+4. The Nebius provider returns advisory hypotheses, support/contradiction citations, uncertainty, and an allowed action name. FastAPI validates the output and fills target and desired template from trusted local state.
+5. The operator approves the exact immutable proposal. FastAPI rechecks existing hash/version/expiry/approval rules plus current Kubernetes UID/resource version/template hash. A short-lived, one-use capability binds the execution; the MCP mutation tool independently checks scope and state before restoring the captured good template.
+6. Execution and verification remain separate records. Fresh rollout availability, three post-action `/healthz` probes, and a 60-second Prometheus window with sufficient traffic decide verified, failed, or inconclusive. No model statement or accepted patch alone closes the incident.
+
+Compose runs web/API/database/Prometheus and the planned MCP service; kind runs the sample workload. The bootstrap must prove Compose-to-kind API and metrics connectivity **from inside containers**. Use a namespace-scoped ServiceAccount credential, never the host's cluster-admin kubeconfig or Docker socket. Nebius inference is the sole required remote service for this MVP and needs an internet connection. See [implementation plan](IMPLEMENTATION_PLAN.md) and [security](SECURITY.md).
