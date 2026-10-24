@@ -1,6 +1,6 @@
 # FixProof MVP implementation plan
 
-Updated 2026-10-24. This is an **execution plan**, not a claim that the target workflow exists. The repository currently has a Compose/FastAPI/React/PostgreSQL scaffold, mock investigation responses, and synthetic cost data. See [repository assessment](INITIAL_ASSESSMENT.md). The release target is the single [unhealthy sample application incident](INITIAL_INCIDENT.md).
+Updated 2026-10-24 after merging current `main`. This is an **execution plan**, not a claim that the target workflow exists. The repository has a working local scaffold and Phase 2 lifecycle foundation: normalized synthetic investigations/evidence, exact-hash approval decisions, idempotent execution/verification records, append-only audit guards, generated frontend API types, and persisted synthetic cost reports. The default operations adapter fails unavailable without mutating infrastructure. See [repository assessment](INITIAL_ASSESSMENT.md) and [Phase 2 handoff](PHASE_2_HANDOFF.md). The release target is the single [unhealthy sample application incident](INITIAL_INCIDENT.md).
 
 ## Delivery rule
 
@@ -12,7 +12,7 @@ Build one vertical path through real components. Each phase ends with a command 
 
 | Phase | Depends on | Deliverable demonstrated at exit | Status |
 |---|---|---|---|
-| 0. Repair scaffold | Existing repo | Browser and API work together; local test/lint/build commands run | Needed |
+| 0. Confirm foundation | Current `main` | Full five-service Compose and Grafana smoke path verified; existing checks remain green | Partial: core stack and checks implemented |
 | 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Not started |
 | 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Not started |
 | 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Not started |
@@ -24,16 +24,15 @@ Build one vertical path through real components. Each phase ends with a command 
 
 The phases are ordered for a solo developer. With several contributors, sample workload, API migration design, and UI shell can proceed in parallel after Phase 0, but they must meet at the contract gates below. [Team ownership](TEAM_OWNERSHIP.md) is a coordination map, not an assertion that anyone has completed a stream.
 
-## Phase 0 — repair the runnable foundation
+## Phase 0 — confirm the existing foundation
 
 **Implement**
 
-- Confirm the Nginx runtime listener and correct `compose.yaml`'s web port mapping. Use a same-origin `/api` proxy or explicitly configured local CORS so a real browser can fetch the API.
-- Make `make test` and `make lint` use images or local environments that actually contain pytest, Ruff, pnpm, and the web source. Retain a production runtime image without test tools.
-- Verify migration/seed order against a fresh PostgreSQL volume and a preserved one. Add an API/database integration test. Fix the repeated mock investigation version collision or label/retire that endpoint when the real one arrives.
-- Label every mock evidence/recommendation and static cost view as demo data. Keep the synthetic cost feature available only as a clearly separate legacy page.
+- Preserve the already implemented Nginx port/CORS fixes, development check images, migration tests, OpenAPI/type generation, proposal versioning, and mock labels. Do not redo those completed changes.
+- Re-run the full five-service `docker compose up --build --wait --wait-timeout 180` path and `python scripts/smoke.py` on the merged source. Earlier core-stack checks passed, but a Grafana image checksum failure prevented a complete five-service smoke; see [Docker notes](DOCKER.md). Record whether that host-specific pull issue remains.
+- Run the existing API SQLite/PostgreSQL, web, lint, formatting, and contract checks through `compose.checks.yaml`. Fix only concrete regressions found after the merge.
 
-**Exit gate:** from a clean checkout, Compose config and images build; `/health/live`, `/health/ready`, and the browser incident list work; local test/lint/build commands run and CI passes. Record exact commands and outputs in the Phase 0 PR. No kind or Nebius key is needed here.
+**Exit gate:** the current core-stack and check suites remain green and the full five-service smoke passes. If the Grafana image pull is still blocked by the host environment, document that blocker and continue isolated kind work without marking Phase 0 complete. No kind or Nebius key is needed for this gate. The foundation and Phase 2 handoff retain their prior acceptance record.
 
 ## Phase 1 — create one observable fault
 
@@ -50,9 +49,9 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 **Implement**
 
-- Add a locally generated operator secret and short-lived session. Remove trust in the caller-supplied `actor` string before using identity for new workflows. Protect state-changing browser requests from cross-site submission.
-- Extend `incidents` and add immutable `incident_triggers` through Alembic. Persist target cluster/namespace/name/UID, symptom fingerprint, lifecycle, symptom assessment, source, reporter, source/server times, idempotency key, and an audit event. Preserve seeded rows as labeled legacy demo incidents.
-- Extend `POST /api/v1/incidents` and the incident list/detail UI to accept the registered sample target. Implement transactional reuse of an open incident with the same target/symptom, idempotent retry handling, and explicit `unassessed` state. Queue an investigation request; the collector is connected in Phase 3. Follow [incident intake](INCIDENT_INTAKE.md).
+- Replace the existing server-owned `local-demo-user` role boundary with a locally generated operator secret and short-lived session for this mutation-capable MVP. The current boundary prevents body-level actor spoofing but is not a login. Protect state-changing browser requests from cross-site submission.
+- Extend the existing `incidents` table and idempotency service; add immutable `incident_triggers` through a new Alembic migration. Persist target cluster/namespace/name/UID, symptom fingerprint, lifecycle, symptom assessment, source, reporter, source/server times, and audit event. Preserve seeded rows as labeled legacy demo incidents.
+- Extend the existing `POST /api/v1/incidents` route and incident UI to accept the registered sample target. Add transactional reuse of an open case with the same target/symptom and explicit `unassessed` state. Queue an investigation request; the real collector is connected in Phase 3. Follow [incident intake](INCIDENT_INTAKE.md).
 
 **Exit gate:** a manual report creates one incident and trigger, shows “reported, awaiting evidence collection,” and survives API restart. Reusing an idempotency key creates nothing new; a distinct report appends a trigger to the open case. Unknown target, wrong UID, unauthenticated request, and oversized note are rejected. Intake does not claim detection, diagnosis, or approval.
 
@@ -63,7 +62,7 @@ The phases are ordered for a solo developer. With several contributors, sample w
 - Add `apps/mcp/` as the sole infrastructure tool server. Give it a scoped Kubernetes ServiceAccount/Role for the sample namespace and read-only Prometheus access. The Compose API is its only client. Do not mount a cluster-admin kubeconfig or Docker socket.
 - Bootstrap a restricted kubeconfig whose API-server address is reachable from inside the MCP container; refresh expiring credentials. On Windows Docker Desktop, validate the published kind endpoint via `host.docker.internal`; document the Linux host-gateway equivalent.
 - Implement bounded tools for approved Prometheus query templates, Deployment/ReplicaSet status, pods, events, and capped pod logs. Restrict namespace, target, time range, result size, and timeout. Mutation remains disabled.
-- Add `investigations` and `evidence_items` migrations. Each snapshot stores source, UTC observation/window, target UID, content hash, trust/redaction labels, bounded payload, and collection error. Add API reads and incident timeline entries. Missing sources are visible gaps, never generated facts.
+- Extend the existing `investigations` and `evidence_items` schema and APIs. They already retain normalized synthetic source/time/hash/trust data; add the target UID, observation window, redaction marker, bounded real payload, and per-source collection error needed for this incident. Keep existing generated contracts in sync. Missing sources are visible gaps, never generated facts.
 
 **Exit gate:** for a faulty sample app, one investigation retains real metric, rollout, pod, event, log, and direct-probe observations where available, with stable evidence IDs. Disable one source and show an explicit collection error without fake data. Tests cover size bounds, unauthorized namespace/target, hostile log text, and evidence persistence after restart.
 
@@ -71,7 +70,7 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 **Implement**
 
-- Add a provider interface with deterministic fixtures for CI and a Nebius Token Factory adapter for the release path. Configure `NEBIUS_API_KEY`, endpoint, model ID, timeout, and retry budget locally. Select a currently available NVIDIA Nemotron model and test the exact response behavior with a live call ([Nebius Nemotron guide](https://nebius.com/services/token-factory/nemotron)).
+- Extend the existing bounded mock provider interface with a Nebius Token Factory adapter for the release path. Configure `NEBIUS_API_KEY`, endpoint, model ID, timeout, and retry budget locally. Select a currently available NVIDIA Nemotron model and test the exact response behavior with a live call ([Nebius Nemotron guide](https://nebius.com/services/token-factory/nemotron)). Keep deterministic fixtures for CI.
 - Build a bounded, redacted evidence bundle containing evidence IDs and short relevant excerpts. Keep credentials, unrestricted logs, and arbitrary local files out of the prompt.
 - Validate the model response against a strict schema: hypotheses, supporting/contradicting evidence IDs, gaps, uncertainty, and one proposed action name from the allowlist. The API fills exact target and desired template from trusted local state. Reject unknown citations, malformed output, unsupported actions, and target drift. Persist provider/model/request metadata and validated findings.
 - Show measured evidence and model interpretation separately in the incident UI. If Nebius is unavailable, retain evidence and show `needs_review`; never silently substitute a mock result in a live incident.
@@ -82,8 +81,8 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 **Implement**
 
-- Add immutable recommendation versions with a canonical proposal hash, target UID, expected bad template/resource version, desired captured good template hash, evidence citations, expiry, and allowed action `restore_known_good_template`. Resolve the desired template from local trusted baseline state, not model output.
-- Add approval/rejection records with server-established operator identity and time. Approval checks that the proposal is current, cited, allowed, unexpired, and still matches the stored target. Any payload or target change creates a new version and invalidates the old approval.
+- Extend the existing immutable recommendation versions, SHA-256 proposal hash, expiry, and separate approval/rejection records with exact Kubernetes target UID, expected bad template/resource version, desired captured good template hash, and real evidence citations. Resolve the desired template from local trusted baseline state, not model output.
+- Reuse the existing current-version/content/expiry/approval checks, adding the real target precondition and authenticated operator session. Any payload or target change creates a new version and invalidates the old approval.
 - Build a review screen that presents evidence, uncertainty, exact target, exact change, expected effect, and verification plan before the operator explicitly clicks approve or reject. Keep this phase read-only to Kubernetes.
 
 **Exit gate:** exact-hash approval persists and appears in the audit timeline. Rejected, expired, changed, missing-citation, duplicate, and wrong-target proposals cannot become executable. UI tests confirm that review and deliberate approval are separate actions. No MCP mutation capability is enabled yet.
@@ -92,7 +91,7 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 **Implement**
 
-- Add `executions` with unique idempotency key, approval reference, state, preflight snapshot, timestamps, result/error, and audit transitions. Claim the execution transactionally so concurrent retries cannot patch twice.
+- Extend the existing durable execution/idempotency records and commit-before-adapter claim with a Kubernetes preflight snapshot and real action outcome. Preserve its rule that an interrupted pending attempt is not automatically invoked again; design explicit reconciliation before enabling real mutation.
 - Add the single MCP mutation tool for restoring the captured known-good pod template. Before patching, API and MCP independently check namespace/name/UID, current resource version and bad-template hash, desired good-template hash, approved proposal, and expiry. Use a short-lived one-use signed capability bound to this execution; MCP rejects a replay.
 - Patch through the Kubernetes API using a namespace Role scoped to the sample Deployment. Record the API result. A successful patch is `execution_succeeded`, not `verified`.
 
@@ -102,9 +101,9 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 **Implement**
 
-- Add `verification_results` linked to execution. Start a new observation window after the patch; poll restored rollout availability, perform three fresh functional `/healthz` probes, and query a 60-second Prometheus window with at least 20 `/api/work` requests and less than 1% 5xx.
-- Store thresholds, actual counts/ratio, observation times, rollout revision, probe statuses, timeout, and the decision reason. Return `verified`, `verification_failed`, or `inconclusive`. A failed probe or persistent errors is failure; missing/stale metrics or insufficient traffic is inconclusive. Do not auto-close the incident.
-- Complete incident detail/timeline UI for trigger → evidence → investigation → proposal → approval → execution → verification. Generate or maintain frontend types from OpenAPI and show pending/error/empty states.
+- Extend the existing separate `verification_results` record and API with real post-action measurements. Start a new observation window after the patch; poll restored rollout availability, perform three fresh functional `/healthz` probes, and query a 60-second Prometheus window with at least 20 `/api/work` requests and less than 1% 5xx.
+- Store thresholds, actual counts/ratio, observation times, rollout revision, probe statuses, timeout, and the decision reason. Reuse the current verification API states `passed`, `failed`, and `inconclusive`; the UI may label `passed` as “verified recovery.” A failed probe or persistent errors is failure; missing/stale metrics or insufficient traffic is inconclusive. Do not auto-close the incident.
+- Complete the existing incident detail/timeline UI for trigger → evidence → investigation → proposal → approval → execution → verification. Regenerate the committed OpenAPI snapshot and frontend types after route/schema changes; preserve contract-drift checks and pending/error/empty states.
 
 **Exit gate:** the successful run reaches `verified` only after all independent conditions pass. A patch that leaves the app unhealthy reports failure; unavailable metrics reports inconclusive. Every verdict can be traced to stored readings, not model prose.
 
@@ -114,7 +113,7 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 - Turn bootstrap, fault, reset, and teardown into documented commands in [demo runbook](DEMO_RUNBOOK.md). Keep the local database across normal `down`; mark destructive reset commands clearly. Add integration readiness to the UI/API without exposing credentials.
 - Run the full scenario twice from a clean cluster and database, then run denial and failed-verification cases. Check Compose↔kind networking on the supported host platform and a documented Linux equivalent.
-- Add CI jobs for API migrations/contracts, web lint/build, MCP unit tests, sample metrics, and safe end-to-end tests. Keep the live Nebius smoke test explicitly credential-gated; deterministic tests alone do not satisfy release acceptance.
+- Extend the existing CI jobs for API migrations/contracts and web lint/build with MCP unit tests, sample metrics, and safe end-to-end tests. Keep the live Nebius smoke test explicitly credential-gated; deterministic tests alone do not satisfy release acceptance.
 - Review evidence redaction, secret handling, network bindings, RBAC, audit integrity, and the docs against actual observed behavior.
 
 **Release gate:** a developer with Docker/Compose, kind, and a Nebius key can follow the runbook without code edits and see an evidence-backed proposal, explicit approval, exactly one scoped action, and measured recovery. The same runbook demonstrates rejection and a failed or inconclusive verification. Save commands, timestamps, evidence IDs, proposal hash, execution ID, and readings in a redacted acceptance record.
@@ -127,7 +126,7 @@ The phases are ordered for a solo developer. With several contributors, sample w
 4. **Before Phase 6:** review proposal hash canonicalization, Kubernetes preconditions, one-use capability, Role permissions, and execution state machine. Mutation stays disabled until negative tests pass.
 5. **Before Phase 8:** freeze verification thresholds and report shape based on observed sample traffic; verify that the UI and API describe the same outcome.
 
-Database migrations should be incremental at the phase that first needs each table; test upgrades/downgrades in an isolated PostgreSQL database. Existing mock recommendation and synthetic cost rows must remain visibly demo-only or be removed through a deliberate migration, never interpreted as real investigation history.
+Database migrations should extend the existing `0001`–`0003` history incrementally at the phase that first needs each field/table; test upgrades/downgrades in an isolated PostgreSQL database. Existing mock recommendations and persisted synthetic cost rows must remain visibly demo-only or be removed through a deliberate migration, never interpreted as real investigation history.
 
 ## How to ship the phases
 
@@ -156,5 +155,5 @@ If the restore patch fails, record `execution_failed`, leave the incident open, 
 
 - **Automatic detection:** add the Prometheus rule/poller described in [incident intake](INCIDENT_INTAKE.md), enter through the same intake service, and test deduplication, stale data, low traffic, and reset/retrigger. The MVP can ship with manual intake.
 - **Optional GitHub context:** read recent commits/deployments for the exact target with bounded scopes; store provenance and keep it advisory.
-- **Cloud Cost Autopsy:** revisit the existing static cost demo as a separate product track with real source data and transparent calculations.
+- **Cloud Cost Autopsy:** revisit the existing persisted synthetic cost reports as a separate product track with real source ingestion; measured totals and estimated savings already have distinct calculations.
 - **Broader infrastructure/team use:** additional workloads, clusters, cloud providers, per-user auth/roles, and production deployment require a new threat review and separate acceptance criteria.

@@ -6,5 +6,8 @@ node_modules
 **/__pycache__
 **/.pytest_cache
 **/dist
+**/*.tsbuildinfo
+**/.ruff_cache
+**/*.egg-info
 docs
 sample-data

@@ -1,0 +1,5 @@
+# Root scripts must format identically from the repository root and apps/api.
+# Keep these settings aligned with apps/api/pyproject.toml, which is also used
+# by the standalone API Docker build context.
+line-length = 100
+target-version = "py312"

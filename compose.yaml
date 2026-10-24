@@ -15,33 +15,40 @@ services:
       retries: 12
     restart: unless-stopped
   api:
-    build: { context: ./apps/api }
+    build: { context: ./apps/api, target: runtime }
     env_file: .env
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://fixproof:change-me-local-only@db:5432/fixproof}
     depends_on: { db: { condition: service_healthy } }
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
     networks: [fixproof]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6
     restart: unless-stopped
   web:
     build:
-      context: ./apps/web
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runtime
       args:
         VITE_API_BASE_URL: "${VITE_API_BASE_URL:-http://localhost:8000}"
     depends_on: { api: { condition: service_healthy } }
-    ports: ["5173:80"]
+    ports: ["127.0.0.1:5173:8080"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
     networks: [fixproof]
     restart: unless-stopped
   prometheus:
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
     volumes: ["./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
-    ports: ["9090:9090"]
+    ports: ["127.0.0.1:9090:9090"]
     networks: [fixproof]
     restart: unless-stopped
   grafana:
@@ -51,7 +58,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes: ["./infra/grafana/provisioning:/etc/grafana/provisioning:ro"]
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
     networks: [fixproof]
     restart: unless-stopped
 networks:

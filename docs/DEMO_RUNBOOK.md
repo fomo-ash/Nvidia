@@ -1,21 +1,31 @@
 # Demo runbook
 
-## What works today
+This runbook demonstrates the current synthetic foundation. It does not demonstrate infrastructure execution or recovery.
 
-The scaffold can seed a demo incident and insert a fixed mock recommendation through `POST /api/v1/incidents/{id}/investigate`. Approval changes a database status and adds an audit row. `/evidence` and `/timeline` return fixed data; Cloud Cost Autopsy returns static figures. **There is no real detection, Kubernetes action, Nebius call, or recovery verification.** The web listener and browser API path need Phase 0 fixes, so this is not yet a clean-machine end-to-end demo.
+1. Copy .env.example to .env if needed. Run `docker compose up --build --wait --wait-timeout 180`, then `docker compose run --rm api python -m app.seed`.
+2. Open the console at http://localhost:5173 and API docs at http://localhost:8000/docs.
+3. List incidents and select the seeded incident. Its evidence is empty before investigation.
+4. Call POST /api/v1/incidents/{id}/investigate. Review action, target, parameters, retained synthetic evidence, version, expiry, and proposal_hash.
+5. Approve the exact recommendation using POST /api/v1/recommendations/{id}/approve with `{"proposal_hash":"<returned digest>"}`. The current demo records local-demo-user; it does not authenticate an operator.
+6. Repeat approval and confirm 409. Reinvestigate the incident: version increments, the old record becomes superseded, and a fresh digest must be reviewed.
+7. Inspect the incident timeline and audit list. Entries represent actual API decisions rather than a fabricated recovery.
+8. Create a sample report with POST /api/v1/cost-analyses and body {} (201), then GET /api/v1/cost-analyses/{id} and /records to inspect retained sources. October total is $2,450, September $1,200, increase $1,250 (104.17%). Compute contributes $900 of the increase; storage contributes $350. Estimated savings are $525 = $2,100 eligible compute cost × 25%, assuming cost scales with capacity and health remains acceptable.
+9. Open Grafana's FixProof API foundation dashboard. It shows API-process scrape health and memory, not incident recovery metrics.
+10. Run `python scripts/smoke.py` for the automated HTTP equivalent (it creates its own synthetic incident). Stop with `docker compose down`; data is retained.
 
-To inspect the current API path, start Compose after copying `.env.example` to `.env`, run `docker compose run --rm api python -m app.seed`, and use `http://localhost:8000/docs`. This exercise demonstrates only API and persistence scaffolding. Do not describe the recommendation as evidence-backed or its approval as executable.
+The next real demo must introduce a monitored workload fault, gather attributable evidence, test a bounded fix where practical, obtain approval, execute through a controlled adapter, and retain independent before/after measurements. Failed tests and verification must remain visible.
 
-## MVP acceptance runbook to implement
+For the Phase 2 lifecycle contract, investigate/approve a fresh proposal and call POST /api/v1/recommendations/{id}/execute with the reviewed proposal_hash and a unique Idempotency-Key header. The default adapter returns a persisted failed attempt with mutation_performed=false; this is the expected unavailable result, not a successful fix. Repeat the exact request/key and confirm the same execution ID is replayed. GET /executions/{id} retains that outcome; verification of the failed attempt returns 409. Tests inject synthetic adapters to validate successful, failed and inconclusive independent verification paths. Do not present those test doubles as a live recovery demonstration.
 
-The commands below are required deliverables, not commands that exist today. Document their exact names when Phase 1 lands. The [initial incident specification](INITIAL_INCIDENT.md) defines the measurable fault and recovery thresholds.
+## Planned MVP acceptance run
 
-1. From a clean checkout, configure local passwords and `NEBIUS_API_KEY` plus a currently available Nemotron model ID. Start Compose and create the pinned kind cluster with the bootstrap command. Confirm the API, MCP, Kubernetes, Prometheus, and Nebius status indicators.
-2. Deploy the known-good sample revision and generate baseline requests. Confirm `/healthz` succeeds and Prometheus has nonempty request and error series for the sample app.
-3. Invoke the controlled fault command. Confirm the new Deployment revision is unhealthy, sample requests include 5xx, and Prometheus reports a raised error rate. Record fault time and bad template hash.
-4. Open an incident and start investigation. Inspect stored pod status, events, bounded logs, rollout history, and metric snapshots with source times and IDs. Confirm the Nemotron response cites only those IDs and presents the one allowed restore action with target and preconditions.
-5. Approve the exact proposal as the local operator. Execute once. Observe an audit record and a single MCP mutation attempt; retry the same idempotency key and confirm no second patch.
-6. Wait for verification. Confirm the restored revision is available, a fresh `/healthz` request succeeds, and a post-action Prometheus window meets the configured threshold with sufficient traffic. The UI displays `verified` with readings and timestamps.
-7. Repeat after reset. Also reject one proposal and show that execution is denied. Induce persistent errors or remove metrics and show `verification_failed` or `inconclusive`, never a fabricated success.
+These are release steps to implement, not commands that exist today. The [initial incident](INITIAL_INCIDENT.md) defines the fault and thresholds; [incident intake](INCIDENT_INTAKE.md) defines the reporting contract.
 
-The acceptance record should include the exact commands, observed revisions, evidence IDs, provider/model, proposal hash, approval actor/time, execution ID, and verification readings. Redact credentials. See [roadmap](IMPLEMENTATION_PLAN.md) for phase gates.
+1. From a clean checkout, start Compose, create the pinned kind cluster, deploy the known-good sample app, and register its trusted pod template. Confirm API, MCP, kind, Prometheus, and Nebius readiness without exposing credentials.
+2. Generate baseline traffic and verify `/healthz` and sample metrics. Inject `FAIL_MODE=on` as a new Deployment revision; confirm functional failure and a 60-second window with at least 20 requests and more than 20% 5xx.
+3. Report the exact registered workload as the local operator. Inspect retained metric, rollout, pod, event, bounded log, and direct-probe evidence with source times/IDs. Confirm Nemotron's diagnosis cites only stored evidence and states gaps.
+4. Review and explicitly approve the exact restore proposal. Execute once through MCP. Retry the same idempotency key and confirm no second mutation. Inspect the audit, preflight snapshot, and Kubernetes revision.
+5. Verify against a fresh restored rollout, three successful `/healthz` probes, and a post-action 60-second window with at least 20 requests and less than 1% 5xx. The report must show measured readings and timestamps before saying `verified`.
+6. Repeat from reset. Reject a proposal and show denied execution. Also demonstrate a patch that does not recover the app, or missing metrics, producing `verification_failed` or `inconclusive` rather than success.
+
+The acceptance record includes exact commands, evidence IDs, provider/model, proposal hash, approval actor/time, execution ID, and verification readings. Redact secrets. Existing synthetic cost and operations demonstrations remain separate from this real recovery run.

@@ -1,6 +1,6 @@
 # Incident detection and intake
 
-**Requirement 1: FixProof must detect or accept an incident.** This is an implementation specification for the first kind-based workflow. It describes target behavior, not current behavior. Today `POST /api/v1/incidents` stores a title, severity, and summary; it has no target identity, detection, source record, deduplication, or evidence-based confirmation.
+**Requirement 1: FixProof must detect or accept an incident.** This is an implementation specification for the first kind-based workflow. It describes target behavior, not current behavior. Today `POST /api/v1/incidents` stores a title, severity, and summary and supports actor/key request idempotency. It has no kind target identity, trigger-source record, same-target incident deduplication, or evidence-based symptom confirmation.
 
 ## Outcome and scope
 

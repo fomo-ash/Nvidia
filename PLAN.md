@@ -4,13 +4,13 @@
 
 Deliver one reproducible local kind incident. A deliberate configuration change in a new Deployment revision makes the sample application unhealthy. FixProof accepts a report, collects real Prometheus and Kubernetes evidence through one MCP server, obtains an evidence-cited NVIDIA Nemotron investigation from Nebius Token Factory, proposes restoration of the captured known-good pod template, requires exact human approval, performs one guarded Kubernetes action, and verifies recovery with fresh rollout, health, and metric readings. The frontend, backend, tools, and history run locally; AI inference needs HTTPS access to Nebius.
 
-The current repository is a scaffold with fixed mock recommendations, basic approval status changes, and synthetic cost data. It is not the release workflow. [Current assessment](docs/INITIAL_ASSESSMENT.md) identifies the gaps.
+The current repository already has a hardened local scaffold and Phase 2 lifecycle APIs: normalized synthetic investigations/evidence, exact-hash approvals, idempotent execution/verification records, audit guards, generated API types, and persisted synthetic cost reports. Its operations adapter is unavailable by design, so it performs no infrastructure mutation. It is not the release workflow. [Current assessment](docs/INITIAL_ASSESSMENT.md) identifies the remaining gaps.
 
 ## Execution order
 
 | Phase | Deliverable that must work before proceeding |
 |---|---|
-| 0. Repair scaffold | Browser/API connectivity, Compose ports, migrations, and local test commands work. |
+| 0. Confirm foundation | Browser/API connectivity, Compose ports, migrations, and checks are implemented; close the documented full-stack Grafana verification gap. |
 | 1. Observable kind fault | Sample app is healthy, deliberately faulty, then healthy again; Prometheus sees traffic and 5xx. |
 | 2. Incident intake | Authenticated operator report creates one durable incident/trigger and queues investigation. |
 | 3. MCP evidence | Restricted tools retain real Kubernetes and Prometheus snapshots with provenance. |
@@ -24,7 +24,7 @@ The [implementation plan](docs/IMPLEMENTATION_PLAN.md) gives the tasks, dependen
 
 ## Start here
 
-Phase 0 is next: correct the Nginx port mapping and browser API path, make local test/lint commands runnable, verify migrations/seed on a fresh database, and keep mock content visibly labeled. Then build the kind fixture before designing the final evidence and action adapters around it.
+The foundation fixes and Phase 2 domain work are already on `main`. Recheck the full five-service Compose smoke path, including Grafana, then build the kind sample fixture in Phase 1. Use the existing domain APIs and migrations as the base for later intake, evidence, approval, execution, and verification work.
 
 ## Supporting contracts
 
@@ -33,4 +33,4 @@ Phase 0 is next: correct the Nginx port mapping and browser API path, make local
 - [Architecture](docs/ARCHITECTURE.md), [API](docs/API_CONTRACTS.md), [database](docs/DATABASE_SCHEMA.md), and [security](docs/SECURITY.md) define the boundaries.
 - [Demo runbook](docs/DEMO_RUNBOOK.md) defines what the final release must prove.
 
-Optional GitHub context, automatic alert intake, and the existing synthetic Cloud Cost Autopsy remain after this first release.
+Optional GitHub context, automatic alert intake, and real cost ingestion remain after this first release. The current synthetic Cloud Cost Autopsy remains clearly labeled.

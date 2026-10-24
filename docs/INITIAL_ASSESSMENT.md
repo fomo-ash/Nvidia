@@ -1,29 +1,18 @@
-# Repository assessment
+# Current repository assessment
 
-Updated 2026-10-24 from the checked-in source. The original 2026-10-17 assessment described the repository before the scaffold was added; this page now records the current baseline for the revised MVP.
+Updated 2026-10-24 after pulling `origin/main` (commit `8410f31`). The original 2026-10-17 assessment described an empty repository; the implementation has advanced since then. This page records the baseline for the revised local-first MVP. [Phase 2 handoff](PHASE_2_HANDOFF.md) contains the earlier test and review evidence.
 
-## Implemented
-
-| Area | Source | Current behavior |
+| Area | Implemented in current source | Still needed for the verified-remediation MVP |
 |---|---|---|
-| API and storage | `apps/api/app/main.py`, `api/v1/routes.py`, `models/domain.py`, Alembic `0001_initial` | FastAPI routes, PostgreSQL tables for incidents, recommendations, and audit events; liveness, database readiness, and API metrics endpoint. |
-| Investigation demo | `routes.py` | `investigate` inserts a fixed `restart_demo_workload` recommendation. Evidence and timeline responses are fixed arrays with a fixed timestamp; they are not collected from an incident. Repeated investigation can collide with the unique `(incident_id, version)` constraint because every proposal defaults to version 1. |
-| Approval demo | `routes.py`, `schemas/api.py` | Approve/reject toggles status and writes an audit row. The caller supplies an arbitrary actor string. No immutable hash, expiry, target precondition, authorization, execution, or verification exists. |
-| Operator UI | `apps/web/src/App.tsx` | Overview and incident list fetch API data. Investigations, approvals, cost, and audit routes are placeholders. The API client is a plain fetch wrapper, with no generated types. |
-| Local stack | `compose.yaml`, `Makefile`, `infra/` | Compose defines API, web, PostgreSQL, Prometheus, Grafana. Prometheus scrapes only the FixProof API. No kind, sample app, or MCP service is defined. |
-| Cost demo | `apps/api/app/services/costs.py` | Hard-coded 2026-09/10 records and an estimated savings value. This is unrelated to live incident investigation. |
-| Tests and CI | `apps/api/tests`, `apps/web/src/App.test.tsx`, `.github/workflows/ci.yml` | Liveness and fixed cost assertions, a trivial web test, lint/build jobs. No lifecycle, database integration, Kubernetes, provider, safety, or verification tests. |
+| Local stack | Compose runs web, API, PostgreSQL, Prometheus, and Grafana. Web port/CORS, loopback bindings, development check images, migrations/readiness, CI, and an API-process Grafana dashboard are present. | kind cluster, sample workload, sample metrics scrape, MCP service, and reliable full-stack rehearsal. |
+| API and storage | Alembic `0001`–`0003`; incidents, normalized investigations/evidence, versioned hashed recommendations, separate approval/execution/verification records, audit guards, idempotency, pagination, and persisted synthetic cost reports. | Target-bound incident triggers, real evidence provenance/window/error fields, trusted known-good baseline, Kubernetes preconditions, and real measurement data. |
+| Investigation | Bounded synthetic provider, normalized synthetic evidence and version supersession. | Nebius Nemotron adapter, redacted real evidence bundle, evidence-linked hypotheses, provider failure handling. |
+| Approval and operations | Server-owned local demo actor/role; exact proposal hash and expiry checks; durable approval and operation attempts. Default operations adapter records unavailable failure and performs no mutation. | Authenticated local operator session, one scoped MCP restore action, real preflight/reconciliation, independently measured recovery. |
+| Operator UI | Browser/API connectivity, generated API types, incident and workflow components, component/client checks. | Real incident intake, evidence/proposal review for the kind target, approval and verification flow against live records. |
+| Tests | Phase 2 handoff records PostgreSQL/SQLite lifecycle, migration, concurrency, audit, API, frontend, and HTTP smoke checks. | kind fault/integration, MCP scope, live Nebius smoke, real execution denial paths, and full recovery/failed-verification tests. |
 
-## Known scaffold blockers
+The synthetic cost module is more than a static calculation now: Phase 2 persists reports and source rows with Decimal/Numeric arithmetic. It remains outside the first kind incident milestone. The current role resolver is not production authentication. A successful synthetic adapter test or persisted verification record is not evidence of an actual recovered workload.
 
-- Compose maps `5173:80`, while `nginxinc/nginx-unprivileged` normally listens on port 8080 and the web Dockerfile exposes 8080. Confirm the image config and map the actual listener before treating the UI as reachable.
-- Browser code calls `http://localhost:8000` from the web origin; the API has no CORS setup or same-origin reverse proxy. A browser workflow needs one of those paths.
-- `make test` and `make lint` run against production API and web images. The API image installs no dev dependency group; the web image is only Nginx. CI invokes tools in separate jobs, but these Make targets are not a working local test harness.
-- The seeded incident is deterministic, not a real alert. Incident evidence routes do not check that the incident exists. The advertised `make migrate` is redundant with the API container startup migration and is not a verified clean-machine flow.
-- `.env.example` contains placeholder passwords and `LLM_*` keys that are not used by an inference provider. No provider credential should be inferred from those names.
+The earlier foundation run recorded a Grafana image checksum problem, so a full five-service smoke was not verified there; core database/API/web/Prometheus startup and HTTP smoke were. Recheck the merged stack before marking the new Phase 0 gate complete. No real kind, MCP, Nebius, or infrastructure action exists yet.
 
-## Gap to the first product milestone
-
-Implement one kind sample app and fault, Prometheus sample metrics, Kubernetes evidence, one local MCP server, a Nebius Nemotron provider, structured evidence-linked investigation, an exact approval gate, a single allowed restore action, and fresh independent verification. The immediate next step is the scaffold repair in [the implementation plan](IMPLEMENTATION_PLAN.md). GitHub and cost work are deferred.
-
-This is a source inspection, not a claim that the Compose stack or end-to-end flow ran successfully. `docker compose --env-file .env.example config --quiet` completed with a local Docker config warning. The working tree also contains an unrelated untracked `images/` directory; it was left untouched.
+The unrelated untracked `images/` directory in this working tree was left untouched. No local secrets were inspected or staged.

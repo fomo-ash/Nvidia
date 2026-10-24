@@ -1,24 +1,25 @@
-# Security and approval policy
+# Security
 
-This is a local self-hosted tool with an outbound Nebius inference call. Local does not mean trusted: browser input, logs, Kubernetes events, GitHub context, and model output are data. The current scaffold has **no authentication or safe execution gate**. Its `actor` body field is a display string, not identity. Do not connect it to a live cluster or expose its ports beyond a controlled development machine.
+The current scaffold is a local synthetic demo. Compose binds published ports to 127.0.0.1; PostgreSQL has no published port. Configured CORS origins allow the local console, but CORS is not authentication. Sample passwords and local-demo-user are unsuitable for exposed or multi-user deployments.
 
-## MVP access boundary
+Investigation providers are read-only and schema constrained. Evidence is explicitly synthetic and untrusted. Only the mock provider is configurable today; unsupported provider names fail configuration validation. External models must later receive bounded read-only evidence and return validated structured proposals, with timeouts and evidence references.
 
-- Bind web/API/Prometheus/Grafana published ports to loopback where possible; the MCP server needs no public port. Do not expose the database. For the single-user MVP, generate a local operator secret at bootstrap, require a short-lived authenticated operator session for approval and execution, and prevent cross-site mutation requests. For team use beyond one machine, add real per-user authentication and authorization before enabling mutation.
-- The API holds the Nebius key only. The MCP server holds the restricted Kubernetes credential only. Neither key reaches browser assets, prompts, persisted evidence, logs, or audit details. `.env` and generated kubeconfigs remain ignored and local.
-- Create a Kubernetes Role limited to `fixproof-demo` and the sample workload. Read verbs cover only needed pods, pod logs, events, Deployments, ReplicaSets, and rollout status. Mutation is limited to patching the one Deployment after a server-side name/UID and state check. Never mount a cluster-admin kubeconfig or Docker socket.
-- Restrict MCP read tools by namespace, query template, time range, log byte/line cap, and timeout. Only one mutation tool exists: restore the captured known-good pod template. No arbitrary shell, `kubectl` command, URL fetch, or free-form PromQL from the model.
+Approval requires a caller-supplied digest of the exact reviewed proposal. The server checks retained content, expiry, latest version, status, and the local demo action/target. A changed or superseded proposal requires a fresh investigation and review. The server labels local decisions itself and rejects actor spoofing. PostgreSQL row locks and conditional updates guard concurrent decisions.
 
-## Mandatory mutation gate
+Execution and verification endpoints now persist attempts and outcomes. The default server-owned operations adapter is unconfigured and never mutates infrastructure. Execution rechecks roles, current version, exact content, normalized evidence, expiry, schema/target, durable approval and uniqueness. Approval status alone never authorizes execution. Verification requires successful execution and fresh independent measurements, and rejects contradicted or unsupported success claims. A real adapter must additionally enforce environment/credential scope and isolated-test policy before enabling workload mutation.
 
-1. Persist a normalized, schema-validated proposal with version/hash, cited evidence, exact target UID, expected current bad template, desired known-good template, and expiry.
-2. Require an explicit operator approval request bound to that hash from the authenticated local operator session. Record server-established actor identity and time. A model response or UI state alone cannot authorize execution.
-3. At execution, re-read the approval, reject expired/rejected/changed/already-used proposals, enforce the allowlist and namespace, and compare Kubernetes UID/resource version/template hash with the proposal. Drift requires a new investigation and approval.
-4. Use a unique idempotency key, transactionally claim the execution, and record preflight and mutation results. Issue a short-lived, one-use signed execution capability bound to the proposal hash and target; the MCP mutation tool validates it and repeats target and state checks. Do not trust a caller-provided approval flag.
-5. Verify recovery independently. A successful Kubernetes patch is an execution outcome, not proof of service recovery.
+Execution/verification claims are committed before adapter invocation. Retries replay pending or completed records; they never automatically invoke an interrupted attempt again. Pending-operation reconciliation is deferred. Adapter exceptions are sanitized, and an unknown action outcome is not a reason to retry blindly.
 
-## Data sent to inference
+SQLite/PostgreSQL audit UPDATE/DELETE operations are blocked by triggers; PostgreSQL TRUNCATE is also blocked. Administrative DB permissions and retention policy still need production hardening. A server-owned role resolver permits local operator writes and viewer reads; caller-supplied actors are rejected. LOCAL_DEMO_ENABLED=false denies application access until real authentication is implemented. Secrets, credentials, and raw unbounded logs must not be added to evidence or audit payloads.
 
-Send only the minimum redacted, bounded evidence necessary: metric aggregates, status/events, and short relevant log excerpts with stable evidence IDs. Strip obvious secrets, tokens, private URLs, and personal data before the HTTPS request; keep source payloads local with retention controls. Treat instructions embedded in logs or events as untrusted text. Log provider/model and request metadata without credentials or full sensitive prompts. On provider failure, keep manual inspection available and never infer approval or success.
+The intended trust boundaries are UI → API, evidence/provider output → validated domain service, and approved action → controlled executor. Do not expose the scaffold until authentication/authorization, secret handling, rate limits, durable job handling, and production deployment controls are implemented.
 
-The [roadmap](IMPLEMENTATION_PLAN.md) requires tests for missing/stale approval, target drift, duplicate execution, hostile evidence, secret redaction, and failed verification before enabling mutation.
+## Additional gate before the kind mutation MVP
+
+The server-owned local demo actor is a useful internal role boundary but not proof that a particular human approved a fix. Before enabling the MCP mutation tool, bootstrap a local operator secret and short-lived authenticated session; protect browser writes from cross-site submission. For use beyond one machine, replace that with per-user authentication and authorization.
+
+Run one local FixProof MCP server with a namespace-scoped Kubernetes ServiceAccount for `fixproof-demo`. Read tools accept only registered targets, approved Prometheus query templates, bounded time windows, and capped logs. The only mutation tool restores the trusted captured pod template on the one sample Deployment. Neither the model nor browser receives MCP access, Kubernetes credentials, or the Nebius key. Do not mount the host's cluster-admin kubeconfig or Docker socket.
+
+Extend the existing exact-hash/expiry/approval check with the Deployment UID, resource version, current bad-template hash, desired trusted good-template hash, and a one-use signed execution capability. API and MCP both check scope and current state. A drifted target, expired approval, replay, or pending unknown outcome stops the action; never retry blindly. A successful patch remains an execution outcome until fresh rollout, health, and Prometheus measurements support recovery.
+
+Send Nebius only minimal redacted evidence excerpts with stored IDs. Logs, events, and model output remain untrusted data. Provider timeout or malformed/uncited output leaves the incident for manual review and cannot authorize execution. See the [phased gate](IMPLEMENTATION_PLAN.md) and [initial incident](INITIAL_INCIDENT.md).

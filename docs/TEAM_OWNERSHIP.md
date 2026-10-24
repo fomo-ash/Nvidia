@@ -13,7 +13,7 @@ Review the contracts at three checkpoints: (1) evidence schema and sample metric
 
 | Phase | Primary stream | Required handoff |
 |---|---|---|
-| 0 Scaffold repair | API + UI | Browser/API contract and runnable checks |
+| 0 Foundation confirmation | API + UI + local infrastructure | Preserve merged browser/API/check fixes and recheck full five-service smoke |
 | 1 kind fault | Local infrastructure | Sample endpoints, metrics, and target identity |
 | 2 Incident intake | API + UI | Trigger schema and authenticated operator flow |
 | 3 MCP evidence | Local infrastructure + API | Bounded tool and evidence schemas |

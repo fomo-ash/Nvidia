@@ -1,18 +1,29 @@
-# Docker and local topology
+# Docker
 
-`compose.yaml` currently defines PostgreSQL, FastAPI, a built React UI served by Nginx, Prometheus, and Grafana on the `fixproof` bridge. PostgreSQL uses a named `postgres_data` volume and has no published port. The API waits for the database health check and migrates on startup. Prometheus scrapes only the API's `/metrics`; Grafana provisions that Prometheus as a data source. Neither kind nor the sample workload nor an MCP server is in Compose yet.
+compose.yaml runs the application on a fixproof bridge network: web, API, PostgreSQL, Prometheus, and Grafana. Published ports are loopback-only: web 5173 → 8080, API 8000, Prometheus 9090, Grafana 3000. PostgreSQL is internal.
 
-| Service | Current Compose mapping | Note |
-|---|---|---|
-| API | `8000:8000` | Browser fetch points here directly; cross-origin handling is absent. |
-| Web | `5173:80` | Likely mismatch: web Dockerfile's unprivileged Nginx image exposes 8080. Verify and fix in Phase 0. |
-| Prometheus | `9090:9090` | Only FixProof API metrics. |
-| Grafana | `3000:3000` | Local demo credentials in `.env`; no provisioned incident dashboard. |
+The API image installs the actual application package after copying its sources, runs as an unprivileged user, migrates before startup, and execs Uvicorn so shutdown signals reach the server. Its health check uses migrated-database readiness. Production deployments should run migrations as a separate job.
 
-`make clean` aliases `docker compose down` and preserves PostgreSQL data. `make reset-data` runs `docker compose down -v` and deletes the local database volume; use it only when intentionally resetting the demo. The production API image installs no pytest/ruff and the web runtime image installs no pnpm, so current `make test`/`make lint` need a dev/test service or separate source environment.
+The web image installs from the root pnpm workspace lockfile, builds with the configured VITE_API_BASE_URL, and serves static files from unprivileged nginx on port 8080. Its nginx configuration supports React Router deep links and a health endpoint. Changing the browser API URL requires rebuilding the web image.
 
-## Target additions
+Both Dockerfiles have development targets. compose.checks.yaml runs test tools and sources from those targets instead of trying to run pytest or pnpm inside minimal runtime images. Its optional api-postgres-checks service uses a distinct disposable test database and network.
 
-Keep Compose as the packaging entry point for web, API, PostgreSQL, Prometheus, and one MCP server. Run a local kind cluster beside it. Expose only a sample-app port needed for health checks and Prometheus scraping. Generate a **restricted** Kubernetes client configuration for MCP whose server URL is reachable from within the container; never mount the host's admin kubeconfig. On Docker Desktop this can use the published kind API endpoint through `host.docker.internal`; document the equivalent Linux host-gateway mapping. Verify container-to-kind API access and container-to-sample metrics access during bootstrap. Keep MCP on an internal Compose network and use the API as its only client.
+Grafana provisions a Prometheus datasource and an API-process dashboard. No workload alerts or Kubernetes metrics are claimed yet. API metrics currently expose prometheus-client's default process/runtime metrics.
 
-The API needs outbound HTTPS to Nebius Token Factory for the live Nemotron flow. A deterministic local provider is for tests and offline UI development, not the final MVP demonstration. Bind developer ports to loopback and keep generated credentials and database data out of Git. See [security](SECURITY.md) for access rules.
+Use `docker compose down` or `make clean` to stop the application while retaining postgres_data. `make reset-data` / `docker compose down -v` intentionally deletes application database volumes. The checks project is separate; clean its containers with `docker compose -f compose.checks.yaml --profile checks down`.
+
+Both builds have appropriate ignore rules. The frontend build uses the repository root as context; do not use `docker build apps/web`. Use Compose, or `docker build -f apps/web/Dockerfile .`. The API build context remains apps/api.
+
+During local verification on 2026-10-18, Docker recovered from its earlier startup issue, but the pinned Grafana image repeatedly failed a layer checksum check. The database, API, web, and Prometheus were independently built/started and checked with:
+
+```powershell
+docker compose --parallel 1 up --build --wait --wait-timeout 180 db api web prometheus
+```
+
+This command is useful for isolating monitoring-image download failures. It does not start or verify Grafana, and `scripts/smoke.py` still requires all five services. Do not treat a partial-stack check as a full smoke-test pass. Phase 0 of the [implementation plan](IMPLEMENTATION_PLAN.md) requires a new full-stack check.
+
+## Planned kind and MCP topology
+
+Keep Compose as the local packaging entry point for the existing five services and one future FixProof MCP server. kind runs the sample app in `fixproof-demo`. Prometheus and the verifier need a documented host-mapped sample endpoint; MCP needs a restricted Kubernetes API credential whose server address is reachable **from inside its container**. On Docker Desktop this can use the published kind API endpoint through `host.docker.internal`; document the equivalent Linux host-gateway mapping. Test both paths during bootstrap.
+
+Only MCP receives the namespace-scoped Kubernetes credential. Only API receives the Nebius key. Keep MCP on the internal Compose network without a public listener, keep developer ports on loopback, and leave generated kubeconfigs and database data out of Git. Nebius inference requires outbound HTTPS, while local history and manual inspection should remain available when it is offline.

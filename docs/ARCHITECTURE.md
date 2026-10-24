@@ -1,47 +1,64 @@
 # Architecture
 
-## Current and target boundaries
-
-Today the repository is a React/Vite UI, FastAPI API, PostgreSQL database, and Compose-hosted Prometheus/Grafana. The API returns a hard-coded investigation and synthetic cost data. The components below are the **target MVP**, not deployed components.
+FixProof is a modular monolith. React/Vite owns the operator experience; FastAPI owns contracts and domain rules; PostgreSQL owns durable incident, recommendation, and audit records. SQLite supports isolated unit/integration tests and optional host development. Prometheus and Grafana currently observe the API process.
 
 ```mermaid
 flowchart LR
-  O[Local operator] --> UI[Web UI in Compose]
-  UI --> API[FastAPI workflow and policy]
-  API --> DB[(Local PostgreSQL incident history)]
+  UI[React operator console] --> API[FastAPI routes and OpenAPI]
+  API --> Workflow[Investigation and approval services]
+  Workflow --> Provider[Validated mock provider]
+  Workflow --> DB[(PostgreSQL)]
+  API --> Costs[Deterministic billing arithmetic]
+  Prometheus --> API
+  Grafana --> Prometheus
+```
+
+## Implemented boundaries
+
+Routes handle HTTP input and output; recommendation services enforce lifecycle decisions and transaction boundaries. A provider protocol separates advisory investigation from persistence. The mock provider returns a bounded, schema-validated local proposal with explicitly synthetic, untrusted evidence. No provider has a mutation tool or cloud credentials.
+
+Each investigation persists normalized evidence with source/time, content hash and trust label, while retaining the original proposal JSON for compatibility. Its SHA-256 digest binds recommendation identity, incident, version, action, target, parameters, evidence and expiry. Separate approval decisions bind actor/version/hash/expiry. Approval and execution independently validate the reviewed snapshot and normalized evidence. Reinvestigation supersedes pending or approved earlier proposals and is blocked during a pending execution.
+
+PostgreSQL serializes investigation and decision operations with an incident row lock. The unique incident/version constraint and conditional decision update provide additional safeguards. SQLite is a convenience/test backend; it does not reproduce PostgreSQL row locking. Concurrency tests therefore run against PostgreSQL.
+
+Timeline entries come from retained audit events, protected by append-only database triggers. Collection reads are bounded with limit/offset or route-bound keyset cursors and newest-first timestamp/UUID ordering.
+
+Phase 2 persists billing analyses and Decimal/Numeric source rows together with their audit events. Idempotency records bind a server actor/key to a route/body and replay the original result. Execution and verification commit a pending claim before adapter invocation so a crash does not silently repeat an action. These are separate records and outcomes; verification requires attributable, fresh post-execution measurements consistent with their numeric thresholds. The default adapter records an explicit unavailable execution failure and performs no infrastructure mutation.
+
+## Contracts and runtime
+
+The API exports a committed OpenAPI snapshot. The frontend generates TypeScript definitions from that snapshot and derives response types from paths. CI checks both generated artifacts for drift, alongside lint, build, SQLite/PostgreSQL tests, development-image tests, and an HTTP stack smoke test.
+
+Runtime images exclude test tools. Separate development targets contain test dependencies and sources. The web runtime serves SPA routes on port 8080. Compose exposes the console, API, and monitoring only on loopback. API readiness checks database connectivity and the current migration revision.
+
+## Remaining product layers
+
+Production authentication/project authorization, isolated candidate testing, pending-operation reconciliation/workers, real metrics/log/deployment collectors, and infrastructure/measurement adapters remain future work. A server-owned local role resolver provides the Phase 2 authorization boundary; it is not production login. LOCAL_DEMO_ENABLED=false fails application access closed until authentication is configured. At-most-one invocation through the API does not guarantee exactly-once delivery to an external infrastructure system.
+
+The target product sequence remains detect → investigate → explain → propose → test where practical → approve → execute → verify → report. This scaffold implements only part of that sequence and must not report an actual infrastructure change or recovered workload.
+
+## Target local kind MVP
+
+The first real incident is a deliberately faulty configuration in a new Deployment revision of the [sample application](INITIAL_INCIDENT.md). The MVP adds one local FixProof MCP server as the infrastructure boundary. The existing FastAPI lifecycle remains the policy and persistence owner; do not give Nemotron direct MCP access or move approval checks into the UI.
+
+```mermaid
+flowchart LR
+  Operator --> Web[Local React UI]
+  Web --> API[Local FastAPI policy/workflow]
+  API --> DB[(Local PostgreSQL history)]
   API --> MCP[One local FixProof MCP server]
   MCP --> K8S[kind Kubernetes API]
   MCP --> PROM[Local Prometheus]
-  K8S --> APP[Sample Deployment]
-  APP --> PROM
-  API -->|redacted evidence over HTTPS| NEB[Nebius Token Factory / Nemotron]
+  K8S --> Sample[Sample Deployment]
+  Sample --> PROM
+  API -->|bounded redacted evidence over HTTPS| Nebius[Nebius Token Factory / NVIDIA Nemotron]
 ```
 
-FastAPI owns incident state, evidence snapshots, proposal validation, approval, execution orchestration, and verification decisions. The MCP server owns narrowly scoped infrastructure access. The UI never accesses cluster credentials or Nebius keys. Nemotron receives bounded, redacted evidence and returns advisory structured analysis; it never calls mutation tools or decides that recovery occurred. PostgreSQL is the local source of truth. Grafana can help a developer inspect metrics, but it is not a verification authority.
+1. Bootstrap a known-good pod template and record its hash in trusted local baseline state. Fault injection creates a new revision with `FAIL_MODE=on`; `/api/work` returns 5xx and functional `/healthz` fails while `/readyz` keeps traffic flowing.
+2. An authenticated local operator reports the registered target. The API records a trigger and queues investigation. Optional metric detection may later enter the same intake service.
+3. MCP read tools collect capped Prometheus windows, Deployment/ReplicaSet/pod state, events, logs, and a direct probe. Extend existing evidence records with target identity, window, collection error, and redaction metadata. The model receives only stored evidence IDs and sanitized excerpts.
+4. The Nebius provider returns advisory hypotheses, support/contradiction citations, uncertainty, and an allowed action name. FastAPI validates the output and fills target and desired template from trusted local state.
+5. The operator approves the exact immutable proposal. FastAPI rechecks existing hash/version/expiry/approval rules plus current Kubernetes UID/resource version/template hash. A short-lived, one-use capability binds the execution; the MCP mutation tool independently checks scope and state before restoring the captured good template.
+6. Execution and verification remain separate records. Fresh rollout availability, three post-action `/healthz` probes, and a 60-second Prometheus window with sufficient traffic decide verified, failed, or inconclusive. No model statement or accepted patch alone closes the incident.
 
-## One incident workflow
-
-1. Deploy a small HTTP sample app in namespace `fixproof-demo`. `/readyz` checks process readiness, `/healthz` checks functional health, and `/metrics` exposes request/error counters. Save a known-good Deployment pod template and identify its revision and image digest.
-2. Deliberately introduce a configuration problem through a new Deployment revision, using `FAIL_MODE=on` for the first fixture. Pods stay process-ready to receive sample traffic, but application requests and functional `/healthz` fail. This yields measurable 5xx responses while the earlier template remains available. Record the fault injection time and expected bad revision. Reset returns to the known-good baseline.
-3. Start an investigation for that target. FastAPI calls MCP read tools for bounded Prometheus queries, Deployment/ReplicaSet status, pod states, events, and a capped log window. It stores source, UTC observation time, collection window, target identity, content hash, and trust label for each snapshot.
-4. FastAPI sends a minimal redacted evidence bundle to Nebius. A provider adapter calls the configured NVIDIA Nemotron model via HTTPS. Validate the response against a strict schema: hypotheses, evidence IDs supporting and contradicting each, uncertainty, and one allowed action proposal. Invalid or unavailable model output leaves the incident open for manual review.
-5. The operator reviews evidence and approves the exact immutable proposal hash/version, target, expected bad state, desired known-good template, and expiry. Approval is a separate backend transaction. Reject/expire also produce audit events.
-6. FastAPI calls the MCP mutation tool only after checking approval, allowlist, scope, target identity, current resource version/template hash, and idempotency key. It passes a short-lived, one-use signed capability bound to that execution and proposal; MCP validates it before its own target/state checks. For the MVP the only mutation is restoring the captured known-good Deployment pod template in `fixproof-demo`. If state has drifted, stop and require a new proposal; do not silently choose another revision.
-7. Record the API mutation outcome separately. Verify against a fresh rollout observation, a real sample `/healthz` request, and a post-action Prometheus window compared with the pre-action baseline. Use bounded retries and a deadline. Report `verified`, `verification_failed`, or `inconclusive` with measured values; a successful patch alone is never recovery.
-
-## Local topology and access
-
-Compose runs web, API, database, Prometheus, and the single MCP service. `kind` runs the sample app. The bootstrap work must explicitly bridge Compose containers to kind: use a host-mapped sample endpoint for Prometheus and verification, and a generated Kubernetes client configuration for the MCP container whose API-server address is reachable from its network. On Windows Docker Desktop, `host.docker.internal` can address the published kind API port; Linux needs an equivalent documented host gateway. Validate both paths from **inside containers**, not just the host.
-
-The MCP Kubernetes credential must be scoped by a namespace Role/RoleBinding to the sample resources and verbs. Do not mount the host's cluster-admin kubeconfig or Docker socket. Provision/refresh the scoped credential through a local bootstrap command and keep it out of Git. Prometheus is read-only to MCP. Only the MCP container receives Kubernetes credentials; only the API container receives the Nebius key. Bind published interfaces to loopback where feasible.
-
-## Invariants
-
-- The model proposes; backend policy decides what can be approved and executed.
-- Evidence and model output are untrusted input. Normalize, cap, redact, and retain provenance before any inference call.
-- The stored proposal, approval, execution, and verification result are distinct records. Every transition is audited with actor and time.
-- Retries cannot run an approved action twice. Current cluster state is checked immediately before mutation.
-- Health checks and metrics used for verification are collected after execution and linked to the execution record.
-- No generic shell, arbitrary `kubectl`, arbitrary MCP tool invocation, or production cluster target exists in the MVP.
-
-Optional GitHub commit/deployment context is a later read-only adapter. Cloud Cost Autopsy is existing synthetic demo code and does not gate this workflow.
+Compose runs web/API/database/Prometheus and the planned MCP service; kind runs the sample workload. The bootstrap must prove Compose-to-kind API and metrics connectivity **from inside containers**. Use a namespace-scoped ServiceAccount credential, never the host's cluster-admin kubeconfig or Docker socket. Nebius inference is the sole required remote service for this MVP and needs an internet connection. See [implementation plan](IMPLEMENTATION_PLAN.md) and [security](SECURITY.md).
