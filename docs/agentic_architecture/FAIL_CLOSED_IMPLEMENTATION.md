@@ -1,5 +1,7 @@
 # Fail-closed MCP and agent implementation
 
+Historical record: see [current status](CURRENT_IMPLEMENTATION_STATUS.md) and the [architecture contract](README.md) for subsequent run isolation, timestamp-bound hashes, metric freshness checks and CI changes. The verification counts and old hash format below apply only to the original branch.
+
 This document records the changes on `fix/agent-mcp-fail-closed`. It describes the code as it runs now. The [architecture documents](README.md) describe the intended release; the [current status](CURRENT_IMPLEMENTATION_STATUS.md) lists the remaining gates. The changes here make the new services safer to develop against. They do not complete the incident-to-recovery product flow.
 
 | Commit | Area | Main files |

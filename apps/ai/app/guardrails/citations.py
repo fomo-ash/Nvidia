@@ -40,7 +40,9 @@ class CitationValidatorGuard:
         return sanitized
 
     @staticmethod
-    def sanitize_chat_citations(text: str, available_evidence: Sequence[EvidenceReference]) -> tuple[str, list[str]]:
+    def sanitize_chat_citations(
+        text: str, available_evidence: Sequence[EvidenceReference]
+    ) -> tuple[str, list[str]]:
         """Validate citations in a conversational response, returning clean text and valid cited IDs."""
         valid_ids = {evd.id for evd in available_evidence}
         mentioned_ids = CitationValidatorGuard.extract_evidence_ids(text)
@@ -49,6 +51,8 @@ class CitationValidatorGuard:
         phantom_ids = [eid for eid in mentioned_ids if eid not in valid_ids]
         cleaned_text = text
         for phantom in phantom_ids:
-            cleaned_text = cleaned_text.replace(f"[{phantom}]", "").replace(phantom, "[unverified evidence]")
+            cleaned_text = cleaned_text.replace(f"[{phantom}]", "").replace(
+                phantom, "[unverified evidence]"
+            )
 
         return cleaned_text, verified_ids

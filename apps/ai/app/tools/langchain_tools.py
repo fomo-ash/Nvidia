@@ -28,7 +28,9 @@ async def inspect_deployment(
         namespace: Kubernetes namespace (default 'fixproof-demo').
         deployment_name: Target deployment (default 'sample-api').
     """
-    ev = await mcp_client.get_deployment_status(namespace=namespace, deployment_name=deployment_name)
+    ev = await mcp_client.get_deployment_status(
+        namespace=namespace, deployment_name=deployment_name
+    )
     return ev.model_dump()
 
 
@@ -43,7 +45,9 @@ async def inspect_pod_logs(
         deployment_name: Deployment name.
         lines: Number of log lines (max 100).
     """
-    ev = await mcp_client.get_pod_logs(namespace=namespace, deployment_name=deployment_name, lines=lines)
+    ev = await mcp_client.get_pod_logs(
+        namespace=namespace, deployment_name=deployment_name, lines=lines
+    )
     return ev.model_dump()
 
 

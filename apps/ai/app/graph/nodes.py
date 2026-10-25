@@ -1,5 +1,6 @@
 """LangGraph investigation workflow nodes."""
 
+from datetime import datetime, timezone
 from typing import Any
 from app.decisions.jev_engine import JevDecisionEngine
 from app.guardrails.citations import CitationValidatorGuard
@@ -22,7 +23,10 @@ async def collect_telemetry_node(state: InvestigationState) -> dict[str, Any]:
     errors = []
     calls = [
         ("prometheus", lambda: mcp.query_metrics(window="1m")),
-        ("kubernetes:deployment", lambda: mcp.get_deployment_status(namespace=ns, deployment_name=dep)),
+        (
+            "kubernetes:deployment",
+            lambda: mcp.get_deployment_status(namespace=ns, deployment_name=dep),
+        ),
         ("kubernetes:logs", lambda: mcp.get_pod_logs(namespace=ns, deployment_name=dep, lines=50)),
         ("direct:probe", mcp.check_service_health),
         ("kubernetes:events", lambda: mcp.get_pod_events(namespace=ns, limit=10)),
@@ -67,6 +71,15 @@ async def reason_causes_node(state: InvestigationState) -> dict[str, Any]:
     anomaly_id = state.get("anomaly_id", "anom-unknown")
     namespace = state.get("namespace", "fixproof-demo")
     deployment_name = state.get("deployment_name", "sample-api")
+
+    now = datetime.now(timezone.utc)
+    if any(not -5 <= (now - ev.observed_at).total_seconds() <= 120 for ev in evidence):
+        return {
+            "hypotheses": [],
+            "root_cause_summary": "Evidence expired during collection; start a fresh investigation.",
+            "investigation_status": "needs_review",
+            "errors": ["Evidence is stale or future-dated"],
+        }
 
     try:
         raw_hypotheses, summary = await generate_causal_analysis(

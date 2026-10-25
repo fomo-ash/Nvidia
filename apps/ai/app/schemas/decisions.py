@@ -5,9 +5,12 @@ from pydantic import BaseModel, Field
 
 
 class SufficiencyEvaluation(BaseModel):
-    is_sufficient: bool = Field(..., description="Whether collected evidence is sufficient for causal root cause")
+    is_sufficient: bool = Field(
+        ..., description="Whether collected evidence is sufficient for causal root cause"
+    )
     missing_sources: list[str] = Field(
-        default_factory=list, description="List of telemetry sources needed (e.g. ['kubernetes:logs'])"
+        default_factory=list,
+        description="List of telemetry sources needed (e.g. ['kubernetes:logs'])",
     )
     confidence: float = Field(default=0.9, ge=0.0, le=1.0)
     reason: str = Field(default="")
