@@ -1,50 +1,103 @@
-"""TypeSafe Jev System-1 decision engine for microsecond routing and risk scoring."""
+"""TypeSafe Jev System-1 decision engine implementation.
 
-from typing import Sequence
+Official documentation:
+- Jev API docs: https://www.jevtypesafeai.com/jev/api
+- TypeSafe AI tools & guides: https://www.typesafeai.org/tools & https://www.typesafeai.org/guides
+- API Reference: https://api.typesafe.ai/ (v1/systemone)
+"""
+
+from typing import Any, Sequence
 import httpx
 
 from app.config import settings
 from app.schemas.decisions import RiskEvaluation, SufficiencyEvaluation
 from app.schemas.state import EvidenceReference, RemediationCandidate
 
+try:
+    from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score
+except ImportError:
+    AsyncTypeSafeClient = None
+
 
 class JevDecisionEngine:
-    """TypeSafe Jev client with deterministic rule-based SRE heuristic engine fallback."""
+    """Official TypeSafe Jev System-1 Decision Engine for microsecond routing and risk scoring."""
 
-    def __init__(self, api_key: str = settings.TYPESAFE_API_KEY, base_url: str = settings.TYPESAFE_BASE_URL) -> None:
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> None:
+        self.api_key = api_key or settings.EFFECTIVE_JEV_KEY
+        self.base_url = (base_url or settings.TYPESAFE_BASE_URL).rstrip("/")
+
+    def _get_api_endpoint(self) -> str:
+        """Resolve either official TypeSafe endpoint or hosted gateway based on key prefix/URL."""
+        if "jevtypesafeai.com" in self.base_url or self.api_key.startswith("jv_live_"):
+            return "https://jevtypesafeai.com/api/v1/decide"
+        return f"{self.base_url}/v1/systemone"
 
     async def evaluate_sufficiency(
         self, evidence: Sequence[EvidenceReference], attempt: int = 1
     ) -> SufficiencyEvaluation:
-        """Evaluate if collected evidence is sufficient to pinpoint root cause."""
+        """Evaluate if collected evidence is sufficient to pinpoint root cause using Jev noul and choice."""
+        # 1. Check live Jev API if valid key is supplied
         if self.api_key and not self.api_key.startswith("mock"):
+            state_text = "\n".join(
+                [f"[{ev.source}] {ev.fact} (data: {ev.raw_data})" for ev in evidence]
+            )
+            payload = {
+                "state": f"Incident Telemetry State:\n{state_text}",
+                "questions": {
+                    "is_sufficient": {
+                        "type": "noul",
+                        "instructions": "Is the accumulated telemetry evidence sufficient to isolate the root cause without ambiguity?",
+                    },
+                    "missing_source": {
+                        "type": "choice",
+                        "instructions": "Which telemetry source is most urgently needed to complete diagnosis?",
+                        "criteria": {
+                            "none": "Current evidence is sufficient",
+                            "prometheus": "Missing request rate and 5xx error metrics",
+                            "kubernetes_deployment": "Missing deployment pod template spec and env vars",
+                            "kubernetes_logs": "Missing container error logs",
+                            "direct_probe": "Missing direct health endpoint probe",
+                        },
+                    },
+                },
+            }
+
             try:
-                async with httpx.AsyncClient(timeout=3.0) as client:
-                    payload = {
-                        "model": "jev-choice-v1",
-                        "context": [ev.model_dump() for ev in evidence],
-                        "question": "Is telemetry sufficient to diagnose root cause?",
-                        "options": ["sufficient", "insufficient"],
-                    }
+                endpoint = self._get_api_endpoint()
+                async with httpx.AsyncClient(timeout=4.0) as client:
                     res = await client.post(
-                        f"{self.base_url}/v1/decisions",
-                        headers={"Authorization": f"Bearer {self.api_key}"},
+                        endpoint,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                        },
                         json=payload,
                     )
                     if res.status_code == 200:
-                        data = res.json()
-                        is_suff = data.get("choice") == "sufficient"
+                        answers = res.json().get("answers", {})
+                        noul_val = float(answers.get("is_sufficient", {}).get("noul", 0.0))
+                        missing_choice = answers.get("missing_source", {}).get("choice", "none")
+
+                        is_sufficient = noul_val >= 0.70
+                        missing = []
+                        if not is_sufficient and missing_choice != "none":
+                            source_tag = missing_choice.replace("_", ":")
+                            missing.append(source_tag)
+
                         return SufficiencyEvaluation(
-                            is_sufficient=is_suff,
-                            missing_sources=data.get("missing", []),
-                            confidence=float(data.get("confidence", 0.9)),
-                            reason=data.get("rationale", "Jev Choice model evaluated sufficiency"),
+                            is_sufficient=is_sufficient,
+                            missing_sources=missing,
+                            confidence=round(noul_val if is_sufficient else (1.0 - noul_val), 3),
+                            reason=f"Jev System-1 evaluated sufficiency probability at {round(noul_val, 2)}.",
                         )
             except Exception:
                 pass
 
+        # 2. Deterministic high-speed rule engine fallback for local/offline dev
         sources = {ev.source for ev in evidence}
         has_metrics = "prometheus" in sources
         has_deployment = "kubernetes:deployment" in sources
@@ -76,30 +129,62 @@ class JevDecisionEngine:
     async def score_remediation_risk(
         self, action: RemediationCandidate, evidence: Sequence[EvidenceReference]
     ) -> RiskEvaluation:
-        """Score risk of proposed remediation action."""
+        """Score risk and approval requirements of proposed remediation using Jev choice and noul."""
         if self.api_key and not self.api_key.startswith("mock"):
-            try:
-                async with httpx.AsyncClient(timeout=3.0) as client:
-                    res = await client.post(
-                        f"{self.base_url}/v1/score",
-                        headers={"Authorization": f"Bearer {self.api_key}"},
-                        json={
-                            "action": action.model_dump(),
-                            "evidence": [ev.model_dump() for ev in evidence],
+            state_text = (
+                f"Proposed Action: {action.action_type}\n"
+                f"Target Parameters: {action.parameters}\n"
+                f"Template Hash: {action.template_hash}\n"
+                f"Reversible: {action.reversible}\n"
+                f"Evidence Count: {len(evidence)}"
+            )
+            payload = {
+                "state": f"Proposed Remediation Candidate:\n{state_text}",
+                "questions": {
+                    "risk_tier": {
+                        "type": "choice",
+                        "instructions": "What is the operational risk tier of restoring the known-good deployment template?",
+                        "criteria": {
+                            "low": "read-only or non-disruptive",
+                            "medium": "scoped to single deployment pod template restore",
+                            "high": "multi-service or database mutation",
+                            "critical": "cluster-wide disruptive change",
                         },
+                    },
+                    "requires_human_approval": {
+                        "type": "noul",
+                        "instructions": "Does this production remediation action require human operator sign-off before execution?",
+                    },
+                },
+            }
+
+            try:
+                endpoint = self._get_api_endpoint()
+                async with httpx.AsyncClient(timeout=4.0) as client:
+                    res = await client.post(
+                        endpoint,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
                     )
                     if res.status_code == 200:
-                        d = res.json()
+                        answers = res.json().get("answers", {})
+                        tier_choice = answers.get("risk_tier", {}).get("choice", "medium")
+                        approval_noul = float(answers.get("requires_human_approval", {}).get("noul", 0.9))
+
                         return RiskEvaluation(
-                            risk_tier=d.get("tier", "medium"),
-                            blast_radius=d.get("blast_radius", "single_pod"),
-                            confidence=float(d.get("confidence", 0.9)),
-                            requires_human_approval=True,
-                            rationale=d.get("rationale", "Evaluated by Jev Score"),
+                            risk_tier=tier_choice,
+                            blast_radius="single_pod (fixproof-demo/sample-api)",
+                            confidence=0.92,
+                            requires_human_approval=approval_noul >= 0.50,
+                            rationale=f"Jev System-1 scored risk as '{tier_choice}' (approval probability: {round(approval_noul, 2)}).",
                         )
             except Exception:
                 pass
 
+        # Deterministic SRE policy scoring fallback
         return RiskEvaluation(
             risk_tier="medium",
             blast_radius="single_pod (fixproof-demo/sample-api)",

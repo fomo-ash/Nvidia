@@ -95,13 +95,17 @@ flowchart TB
 
 Detailed architecture blueprints are documented in this folder:
 
-1. [MCP_ARCHITECTURE.md](file:///d:/WEB%20DEV%20udemy/FULLSTACK_PROJECTS/nvidia-x-nebius/Nvidia/agentic_architecture/MCP_ARCHITECTURE.md)
+1. [CURRENT_IMPLEMENTATION_STATUS.md](file:///d:/WEB%20DEV%20udemy/FULLSTACK_PROJECTS/nvidia-x-nebius/Nvidia/docs/agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md)
+   - Real-time engineering status of `apps/mcp` and `apps/ai`.
+   - Comprehensive module map, protocol implementations, and test coverage.
+
+2. [MCP_ARCHITECTURE.md](file:///d:/WEB%20DEV%20udemy/FULLSTACK_PROJECTS/nvidia-x-nebius/Nvidia/docs/agentic_architecture/MCP_ARCHITECTURE.md)
    - Custom FixProof MCP server specification.
    - Tool definitions (`query_metrics`, `get_deployment_status`, `get_pod_events`, `get_pod_logs`, `check_service_health`, `restore_known_good_template`).
    - Resource endpoints and namespace-scoped RBAC configuration.
    - Synchronizing tool outputs with `apps/api/app/schemas/lifecycle.py` and `apps/api/app/services/operations.py`.
 
-2. [AI_AGENT_ARCHITECTURE.md](file:///d:/WEB%20DEV%20udemy/FULLSTACK_PROJECTS/nvidia-x-nebius/Nvidia/agentic_architecture/AI_AGENT_ARCHITECTURE.md)
+3. [AI_AGENT_ARCHITECTURE.md](file:///d:/WEB%20DEV%20udemy/FULLSTACK_PROJECTS/nvidia-x-nebius/Nvidia/docs/agentic_architecture/AI_AGENT_ARCHITECTURE.md)
    - LangGraph state machine with Human-in-the-Loop (`interrupt()`).
    - Durable PostgreSQL checkpointing (`AsyncPostgresSaver`).
    - Jev integration (`Choice`, `Score`, `Noul`) for routing and risk scoring.

@@ -29,3 +29,11 @@ services:
     profiles: [checks]
     build: { context: ., dockerfile: apps/web/Dockerfile, target: development }
     command: ["pnpm", "test", "--run"]
+  mcp-checks:
+    profiles: [checks]
+    build: { context: ./apps/mcp, target: development }
+    command: ["pytest", "-q", "-p", "no:cacheprovider"]
+  ai-checks:
+    profiles: [checks]
+    build: { context: ./apps/ai, target: development }
+    command: ["pytest", "-q", "-p", "no:cacheprovider"]

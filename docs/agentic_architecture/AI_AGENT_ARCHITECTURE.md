@@ -107,13 +107,11 @@ async def gather_telemetry_node(state: IncidentState):
     # Calls MCP query_metrics, get_deployment_status, check_service_health
     return state
 
-# 2. Jev Sufficiency Node (System 1 - Fast Noul Question)
+# 2. Jev Sufficiency Node (System 1 - Official TypeSafe Jev API: POST /v1/systemone)
 async def jev_sufficiency_node(state: IncidentState):
-    decision = await jev.noul(
-        question="Does current telemetry demonstrate a clear active service failure?",
-        context=state["evidence_items"]
-    )
-    state["is_sufficient"] = decision.is_true
+    # Official Jev request: turns state + typed questions into calibrated decisions
+    eval_result = await jev.evaluate_sufficiency(evidence=state["evidence_items"])
+    state["is_sufficient"] = eval_result.is_sufficient
     return state
 
 # 3. LangGraph Conditional Router (using Jev's output)
@@ -127,14 +125,13 @@ async def nemotron_reasoning_node(state: IncidentState):
     # Prompts Nemotron 70B with evidence bundle; outputs structured hypotheses + citations
     return state
 
-# 5. Jev Risk Scoring Node (System 1 - Fast Score Rubric)
+# 5. Jev Risk Scoring Node (System 1 - Official Jev Choice/Noul Decision)
 async def jev_risk_node(state: IncidentState):
-    score = await jev.score(
-        question="What is the operational risk level of restoring the known-good pod template?",
-        levels=["LOW", "MEDIUM", "HIGH"],
-        context=state["recommendation"]
+    risk_eval = await jev.score_remediation_risk(
+        action=state["recommendation"],
+        evidence=state["evidence_items"]
     )
-    state["risk_level"] = score.choice
+    state["risk_level"] = risk_eval.risk_tier
     return state
 
 # 6. Human Approval Pause (HITL Interrupt)
