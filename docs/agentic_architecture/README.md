@@ -29,7 +29,7 @@ flowchart TB
     end
 
     subgraph MCP["apps/mcp — Custom FixProof MCP Server (:8002)"]
-        FastMCPServer["FastMCP / Python MCP Tool Registry"]
+        MCPServer["Anthropic MCP Tool Server"]
         K8sAdapter["Namespace-Scoped Kubernetes Client"]
         PromAdapter["Prometheus Query Client"]
         HealthAdapter["Direct HTTP Probe Client"]
@@ -49,21 +49,21 @@ flowchart TB
     LangGraph <--> MCPClient
     LangGraph <--> PGCheckpointer
 
-    MCPClient -->|2. MCP Tools Protocol| FastMCPServer
-    FastMCPServer --> PromAdapter --> Prometheus
-    FastMCPServer --> K8sAdapter --> Kind
-    FastMCPServer --> HealthAdapter --> SampleApp
+    MCPClient -->|2. MCP Tools Protocol| MCPServer
+    MCPServer --> PromAdapter --> Prometheus
+    MCPServer --> K8sAdapter --> Kind
+    MCPServer --> HealthAdapter --> SampleApp
 
     LangGraph -->|3. Validated Proposal JSON| AIServer
     AIServer -->|4. Return Recommendation + Cited Evidence| API
     API -->|5. Persist with SHA-256 Hash| DurableDB
 
     Operator -->|6. Approve Hash & Request Execute| PolicyEngine
-    PolicyEngine -->|7. Guarded Restore Capability| FastMCPServer
-    FastMCPServer -->|8. Patch Known-Good Template| Kind
+    PolicyEngine -->|7. Guarded Restore Capability| MCPServer
+    MCPServer -->|8. Patch Known-Good Template| Kind
 
-    PolicyEngine -->|9. Post-Fix Verification Window| FastMCPServer
-    FastMCPServer -->|10. Fresh Metrics & Probes| Prometheus
+    PolicyEngine -->|9. Post-Fix Verification Window| MCPServer
+    MCPServer -->|10. Fresh Metrics & Probes| Prometheus
 ```
 
 ---

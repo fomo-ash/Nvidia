@@ -1,7 +1,7 @@
 # FixProof — Custom MCP Server Architecture (`apps/mcp`)
 
 > **Location:** `apps/mcp/`  
-> **Framework:** Python MCP SDK (`FastMCP`) + FastAPI / Uvicorn  
+> **Framework:** Anthropic Official Python MCP SDK (`mcp.server.Server`, `mcp.types.Tool`) + SseServerTransport / FastAPI  
 > **Role:** Telemetry & Infrastructure Gateway for the AI Agent and Control Plane  
 > **Port:** `8002` (internal Docker network only)
 
@@ -264,7 +264,8 @@ apps/mcp/
 ├── Dockerfile
 ├── pyproject.toml
 ├── app/
-│   ├── main.py                  # FastMCP application entry point + FastAPI wrapper
+│   ├── server.py                # Anthropic MCP Server instance (@server.list_tools, @server.call_tool)
+│   ├── main.py                  # SseServerTransport integration + FastAPI host
 │   ├── config.py                # K8s in-cluster / kubeconfig path & Prometheus URL
 │   ├── adapters/
 │   │   ├── k8s.py               # Kubernetes API client (Deployments, Pods, Logs, Events)
