@@ -2,7 +2,7 @@
 
 FixProof is a local-first, self-hosted AI DevOps investigation and remediation assistant for solo developers and small teams. Its intended MVP accepts an incident in a local kind cluster, collects Prometheus and Kubernetes evidence through one controlled MCP server, investigates with NVIDIA Nemotron through Nebius Token Factory, requires exact human approval for a bounded fix, and independently verifies recovery. The UI, API, integrations, and incident history run locally; live AI inference needs internet access to Nebius. Verified remediation is the product goal.
 
-The current foundation runs locally with synthetic evidence and billing data, so it needs no AWS credentials or external model key. Phase 2 **implemented** normalized investigations/evidence, exact-hash approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. The operations adapter is intentionally unconfigured: an execution attempt records an explicit unavailable failure and never mutates infrastructure. There is no kind sample workload, MCP server, Nebius provider, or real recovery verification yet. The existing Cloud Cost Autopsy is a separate synthetic feature outside the first verified-remediation milestone.
+The current foundation runs locally with synthetic evidence and billing data, so it needs no AWS credentials or external model key. Phase 2 implemented normalized investigations/evidence, exact-hash approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. Separate MCP and AI service scaffolds now exist, but they are not connected to the API's durable incident lifecycle. Missing live telemetry and model access lead to `needs_review`; the restore action remains disabled. There is no kind sample workload or real recovery verification yet. See the [current MCP and AI status](docs/agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md).
 
 ## Run locally
 
@@ -50,6 +50,8 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 ## Project map
 
 - `apps/api`: FastAPI routes, typed contracts, domain services, SQLAlchemy models, Alembic migrations, and tests.
+- `apps/ai`: advisory investigation graph, MCP client, model adapter, and agent tests.
+- `apps/mcp`: bounded read tools for the registered demo target and MCP tests. The service is available only on the Compose network.
 - `apps/web`: React operator console, generated API types, and component/client tests.
 - `infra`: Prometheus and provisioned Grafana configuration.
 - `scripts/smoke.py`: HTTP smoke check of the running stack.
