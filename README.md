@@ -56,6 +56,6 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md): ordered work packages and exit gates for the real incident MVP.
 - [Initial incident](docs/INITIAL_INCIDENT.md) and [incident intake](docs/INCIDENT_INTAKE.md): first fault and reporting contract.
 - [Phase 2 handoff](docs/PHASE_2_HANDOFF.md): backend acceptance evidence, safety boundaries and review gates.
-- [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
+- [Project blueprint](docs/PROJECT_BLUEPRINT.md), [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
 
 The next product milestone is a reproducible kind workload fault, followed by manual intake, real evidence, live Nemotron investigation, a scoped restore action, and measured verification. Optional GitHub context and broader cloud integrations follow that workflow.
