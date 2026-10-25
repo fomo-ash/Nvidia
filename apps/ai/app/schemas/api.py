@@ -1,6 +1,7 @@
 """API request and response schemas for apps/ai endpoints."""
 
 from typing import Any, Literal
+from uuid import UUID
 from pydantic import BaseModel, Field
 from app.schemas.state import EvidenceReference, Hypothesis
 
@@ -23,6 +24,7 @@ class ProposalSummary(BaseModel):
 
 
 class InvestigationResponse(BaseModel):
+    investigation_id: UUID
     incident_id: str
     status: str
     evidence_count: int
@@ -35,12 +37,14 @@ class InvestigationResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    investigation_id: UUID
     incident_id: str
     message: str
     session_id: str = "default"
 
 
 class ChatResponse(BaseModel):
+    investigation_id: UUID
     incident_id: str
     response: str
     citations: list[str] = Field(default_factory=list)

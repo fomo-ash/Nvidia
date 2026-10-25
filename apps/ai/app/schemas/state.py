@@ -3,16 +3,26 @@
 from typing import Annotated, Any, TypedDict
 from pydantic import BaseModel, Field
 import operator
+from datetime import datetime, timezone
+from pydantic import field_validator
 
 
 class EvidenceReference(BaseModel):
     id: str = Field(..., description="Unique evidence ID (e.g. EVD-1a2b3c4d)")
+    observed_at: datetime
     content_hash: str = Field(..., description="SHA-256 hash of canonical telemetry snapshot")
     source: str = Field(..., description="Telemetry source e.g. prometheus, kubernetes:logs")
     fact: str = Field(..., description="Synthesized telemetry observation fact")
     raw_data: dict[str, Any] = Field(default_factory=dict)
     trusted: bool = Field(default=False)
     mode: str = Field(default="live")
+
+    @field_validator("observed_at")
+    @classmethod
+    def aware_observation(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("Evidence observation must include a timezone")
+        return value.astimezone(timezone.utc)
 
 
 class Hypothesis(BaseModel):
@@ -34,6 +44,7 @@ class RemediationCandidate(BaseModel):
 
 class InvestigationState(TypedDict):
     # Incident Identification
+    investigation_id: str
     incident_id: str
     anomaly_id: str
     namespace: str

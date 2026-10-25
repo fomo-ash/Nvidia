@@ -1,5 +1,7 @@
 """Unit tests for FixProof AI Agent service."""
 
+from datetime import datetime, timezone
+
 import pytest
 from app.guardrails.allowlist import ActionAllowlistGuard
 from app.guardrails.citations import CitationValidatorGuard
@@ -15,6 +17,7 @@ async def test_guardrail_citation_validator():
     """Verify that only citations present in valid evidence are retained."""
     evidence = [
         EvidenceReference(
+            observed_at=datetime.now(timezone.utc),
             id="EVD-12345678",
             content_hash="abc",
             source="prometheus",
@@ -61,14 +64,35 @@ async def test_jev_sufficiency_engine():
     """Verify Jev sufficiency evaluates core telemetry sources."""
     engine = JevDecisionEngine()
     ev_partial = [
-        EvidenceReference(id="EVD-1", content_hash="h1", source="prometheus", fact="metrics", trusted=True)
+        EvidenceReference(
+            observed_at=datetime.now(timezone.utc),
+            id="EVD-1",
+            content_hash="h1",
+            source="prometheus",
+            fact="metrics",
+            trusted=True,
+        )
     ]
     eval_partial = await engine.evaluate_sufficiency(ev_partial, attempt=1)
     assert eval_partial.is_sufficient is False
 
     ev_full = [
-        EvidenceReference(id="EVD-1", content_hash="h1", source="prometheus", fact="metrics", trusted=True),
-        EvidenceReference(id="EVD-2", content_hash="h2", source="kubernetes:deployment", fact="deploy", trusted=True),
+        EvidenceReference(
+            observed_at=datetime.now(timezone.utc),
+            id="EVD-1",
+            content_hash="h1",
+            source="prometheus",
+            fact="metrics",
+            trusted=True,
+        ),
+        EvidenceReference(
+            observed_at=datetime.now(timezone.utc),
+            id="EVD-2",
+            content_hash="h2",
+            source="kubernetes:deployment",
+            fact="deploy",
+            trusted=True,
+        ),
     ]
     eval_full = await engine.evaluate_sufficiency(ev_full, attempt=1)
     assert eval_full.is_sufficient is True
@@ -97,8 +121,11 @@ async def test_investigation_workflow_execution(monkeypatch):
         raise RuntimeError("MCP offline")
 
     for method in (
-        "query_metrics", "get_deployment_status", "get_pod_logs",
-        "get_pod_events", "check_service_health",
+        "query_metrics",
+        "get_deployment_status",
+        "get_pod_logs",
+        "get_pod_events",
+        "check_service_health",
     ):
         monkeypatch.setattr(nodes.mcp, method, unavailable)
     initial_state = {
@@ -130,10 +157,16 @@ async def test_investigation_workflow_execution(monkeypatch):
 
 
 def test_model_response_requires_real_citations():
-    evidence = [EvidenceReference(
-        id="EVD-12345678", content_hash="a" * 64,
-        source="prometheus", fact="observed error rate", trusted=True,
-    )]
+    evidence = [
+        EvidenceReference(
+            observed_at=datetime.now(timezone.utc),
+            id="EVD-12345678",
+            content_hash="a" * 64,
+            source="prometheus",
+            fact="observed error rate",
+            trusted=True,
+        )
+    ]
     with pytest.raises(ValueError):
         _parse_or_ground_hypotheses("Likely rollout issue.", evidence)
     with pytest.raises(ValueError):

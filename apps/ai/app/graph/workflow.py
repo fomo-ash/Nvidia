@@ -24,11 +24,15 @@ def build_investigation_graph(checkpointer: Any = None) -> Any:
     builder.add_node("reason_causes", reason_causes_node)
     builder.add_node("score_risk", score_risk_node)
     builder.add_node("synthesize_proposal", synthesize_proposal_node)
-    builder.add_node("needs_review", lambda state: {
-        "investigation_status": "needs_review",
-        "remediation_proposal": None,
-        "root_cause_summary": state.get("root_cause_summary") or "Insufficient live evidence; manual review required.",
-    })
+    builder.add_node(
+        "needs_review",
+        lambda state: {
+            "investigation_status": "needs_review",
+            "remediation_proposal": None,
+            "root_cause_summary": state.get("root_cause_summary")
+            or "Insufficient live evidence; manual review required.",
+        },
+    )
 
     builder.add_edge(START, "collect_telemetry")
     builder.add_edge("collect_telemetry", "evaluate_sufficiency")
@@ -45,7 +49,9 @@ def build_investigation_graph(checkpointer: Any = None) -> Any:
 
     builder.add_conditional_edges(
         "reason_causes",
-        lambda state: "needs_review" if state.get("investigation_status") == "needs_review" else "score_risk",
+        lambda state: "needs_review"
+        if state.get("investigation_status") == "needs_review"
+        else "score_risk",
         {"needs_review": "needs_review", "score_risk": "score_risk"},
     )
     builder.add_edge("score_risk", "synthesize_proposal")

@@ -29,7 +29,10 @@ sse = SseServerTransport("/messages/")
 @app.get("/sse", tags=["MCP SSE"])
 async def handle_sse(request: Request):
     """Anthropic official MCP Server-Sent Events (SSE) connection endpoint."""
-    async with sse.connect_sse(request.scope, request.receive, request._send) as (read_stream, write_stream):
+    async with sse.connect_sse(request.scope, request.receive, request._send) as (
+        read_stream,
+        write_stream,
+    ):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 

@@ -3,6 +3,7 @@
 import json
 import hashlib
 import asyncio
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -37,9 +38,7 @@ class McpClient:
         if data is None:
             try:
                 async with httpx.AsyncClient(timeout=5.0) as client:
-                    response = await client.post(
-                        f"{self.base_url}/tools/{name}", json=arguments
-                    )
+                    response = await client.post(f"{self.base_url}/tools/{name}", json=arguments)
                     response.raise_for_status()
                     data = response.json()
             except (httpx.HTTPError, ValueError) as exc:
@@ -56,13 +55,23 @@ class McpClient:
             "check_service_health": "direct:probe",
         }
         canonical = json.dumps(
-            {"source": evidence.source, "fact": evidence.fact, "raw_data": evidence.raw_data},
+            {
+                "id": evidence.id,
+                "source": evidence.source,
+                "fact": evidence.fact,
+                "raw_data": evidence.raw_data,
+                "observed_at": evidence.observed_at.isoformat(),
+                "mode": evidence.mode,
+                "trusted": evidence.trusted,
+            },
             sort_keys=True,
             default=str,
         )
         expected_hash = hashlib.sha256(canonical.encode()).hexdigest()
+        age = (datetime.now(timezone.utc) - evidence.observed_at).total_seconds()
         if (
-            evidence.mode != "live"
+            not -5 <= age <= 120
+            or evidence.mode != "live"
             or evidence.source != source_by_tool[name]
             or evidence.content_hash != expected_hash
         ):
@@ -85,7 +94,10 @@ class McpClient:
         return await self._call("get_pod_events", {"namespace": namespace, "limit": limit})
 
     async def get_pod_logs(
-        self, namespace: str = "fixproof-demo", deployment_name: str = "sample-api", lines: int = 100
+        self,
+        namespace: str = "fixproof-demo",
+        deployment_name: str = "sample-api",
+        lines: int = 100,
     ) -> EvidenceReference:
         return await self._call(
             "get_pod_logs",

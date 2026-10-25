@@ -55,7 +55,11 @@ class KubernetesClient:
         containers = template.get("spec", {}).get("containers", [])
         container = containers[0] if containers else {}
         fail_mode = next(
-            (env.get("value") for env in container.get("env", []) if env.get("name") == "FAIL_MODE"),
+            (
+                env.get("value")
+                for env in container.get("env", [])
+                if env.get("name") == "FAIL_MODE"
+            ),
             None,
         )
         return {
@@ -122,7 +126,9 @@ class KubernetesClient:
             log_url = f"{pods_url}/{pod_name}/log"
             logs = await client.get(log_url, headers=headers, params={"tailLines": lines})
             logs.raise_for_status()
-        return [line[:500] for line in strip_ansi(logs.text[:16384]).splitlines() if line.strip()][:lines]
+        return [line[:500] for line in strip_ansi(logs.text[:16384]).splitlines() if line.strip()][
+            :lines
+        ]
 
     async def patch_deployment_env(
         self, namespace: str, deployment_name: str, env_updates: dict[str, str]

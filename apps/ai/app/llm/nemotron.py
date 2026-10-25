@@ -30,7 +30,9 @@ async def generate_causal_analysis(
     """Execute causal reasoning over evidence snapshots using Nemotron 70B."""
     lines = []
     for ev in evidence:
-        lines.append(f"- ID: {ev.id} | Source: {ev.source} | Hash: {ev.content_hash[:10]} | Fact: {ev.fact}")
+        lines.append(
+            f"- ID: {ev.id} | Source: {ev.source} | Hash: {ev.content_hash[:10]} | Fact: {ev.fact}"
+        )
     evidence_block = "\n".join(lines) if lines else "No evidence collected."
 
     if mode == "synthetic":
@@ -65,7 +67,9 @@ def _synthetic_causal_reasoning(evidence: list[EvidenceReference]) -> tuple[list
 
     hypotheses = []
     has_fail_mode = any(
-        "FAIL_MODE" in ev.fact or "FAIL_MODE" in str(ev.raw_data) for ev in evidence if "deployment" in ev.source
+        "FAIL_MODE" in ev.fact or "FAIL_MODE" in str(ev.raw_data)
+        for ev in evidence
+        if "deployment" in ev.source
     )
     has_metric_spike = any("5xx" in ev.fact or "CRITICAL" in ev.fact for ev in evidence)
 
@@ -83,7 +87,9 @@ def _synthetic_causal_reasoning(evidence: list[EvidenceReference]) -> tuple[list
             Hypothesis(
                 cause="Readiness probe continues reporting 200 OK because /readyz checks server responsiveness rather than active traffic handlers.",
                 confidence=0.88,
-                supporting_evidence_ids=[eid for eid in [ev_ids_by_source.get("direct:probe")] if eid],
+                supporting_evidence_ids=[
+                    eid for eid in [ev_ids_by_source.get("direct:probe")] if eid
+                ],
                 is_root_cause=False,
             )
         )
@@ -106,7 +112,9 @@ def _synthetic_causal_reasoning(evidence: list[EvidenceReference]) -> tuple[list
     return hypotheses, summary
 
 
-def _parse_or_ground_hypotheses(response_text: str, evidence: list[EvidenceReference]) -> tuple[list[Hypothesis], str]:
+def _parse_or_ground_hypotheses(
+    response_text: str, evidence: list[EvidenceReference]
+) -> tuple[list[Hypothesis], str]:
     """Extract hypotheses and ensure citations are present."""
     from app.guardrails.citations import CitationValidatorGuard
 

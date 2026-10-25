@@ -36,11 +36,15 @@ async def execute_chat(
     history = _CHAT_SESSIONS.setdefault((incident_id, session_id), [])
 
     if settings.NEBIUS_API_KEY.startswith("mock") or not settings.NEBIUS_API_KEY:
-        response_text = "Live model analysis is unavailable. Review the collected evidence manually."
+        response_text = (
+            "Live model analysis is unavailable. Review the collected evidence manually."
+        )
         history.append(HumanMessage(content=user_message))
         history.append(AIMessage(content=response_text))
         del history[:-20]
-        clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(response_text, evidence)
+        clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(
+            response_text, evidence
+        )
         return clean_text, citations
 
     try:
@@ -55,9 +59,13 @@ async def execute_chat(
         history.append(AIMessage(content=response_text))
         del history[:-20]
 
-        clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(response_text, evidence)
+        clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(
+            response_text, evidence
+        )
         return clean_text, citations
     except Exception:
         fallback_text = "Model analysis is unavailable. Review the collected evidence manually."
-        clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(fallback_text, evidence)
+        clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(
+            fallback_text, evidence
+        )
         return clean_text, citations

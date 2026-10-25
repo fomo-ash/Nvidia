@@ -4,9 +4,7 @@ from app.adapters.kubernetes import KubernetesClient
 from app.schemas.evidence import EvidenceItem
 
 
-async def get_pod_events(
-    namespace: str = "fixproof-demo", limit: int = 20
-) -> EvidenceItem:
+async def get_pod_events(namespace: str = "fixproof-demo", limit: int = 20) -> EvidenceItem:
     """Fetch recent Kubernetes events in the target namespace."""
     client = KubernetesClient()
     events = await client.get_pod_events(namespace=namespace, limit=limit)
