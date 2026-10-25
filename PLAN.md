@@ -24,7 +24,7 @@ The [implementation plan](docs/IMPLEMENTATION_PLAN.md) gives the tasks, dependen
 
 ## Start here
 
-The foundation fixes and Phase 2 domain work are already on `main`. Recheck the full five-service Compose smoke path, including Grafana, then build the kind sample fixture in Phase 1. Use the existing domain APIs and migrations as the base for later intake, evidence, approval, execution, and verification work.
+The foundation fixes and historical Phase 2 domain work are already implemented. Full-stack/Grafana smoke and container regression checks now pass locally on `feat/kind-observable-fault`. The [observable kind fixture](infra/kind/README.md) passed two live healthy/fault/reset cycles; see the [handoff](docs/KIND_FIXTURE_HANDOFF.md). CI and peer review remain merge gates. Authenticated incident intake is the next product integration step.
 
 ## Supporting contracts
 

@@ -333,12 +333,14 @@ The data model uses PostgreSQL, managed by Alembic migrations (`0001`–`0003` e
 
 ## 10. Work packages (not a release schedule)
 
-### Work package 1 — Observable Kind Fault & Sample Workload (Priority Focus)
+### Work package 1 — Observable Kind Fault & Sample Workload
+
+Implementation and two-cycle local acceptance passed; CI/review gates are recorded in [the fixture handoff](../KIND_FIXTURE_HANDOFF.md). The captured template is currently a developer fixture artifact, not the API production baseline registry.
 - [x] Baseline database schema, migrations `0001`–`0003`, and core API contracts complete.
-- [ ] Create `infra/kind/` cluster automation and deploy sample app (`apps/sample/`).
-- [ ] Implement sample app endpoints: `/readyz`, `/healthz`, `/api/work`, `/metrics`.
-- [ ] Configure `FAIL_MODE=on` fault injection and verify Prometheus scrapes 5xx errors.
-- [ ] Bootstrap baseline state capturing the known-good pod template.
+- [x] Create `infra/kind/` cluster automation and deploy sample app (`apps/sample/`).
+- [x] Implement sample app endpoints: `/readyz`, `/healthz`, `/api/work`, `/metrics`.
+- [x] Configure `FAIL_MODE=on` fault injection and verify Prometheus scrapes 5xx errors.
+- [x] Bootstrap baseline state capturing the known-good pod template.
 
 ### Work package 2 — Custom MCP Tool Server & Incident Intake
 - [ ] Add operator session authentication and `incident_triggers` migration in `apps/api`.

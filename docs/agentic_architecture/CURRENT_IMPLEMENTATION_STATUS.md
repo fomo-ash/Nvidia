@@ -18,7 +18,7 @@ The final test counts and verification boundaries are recorded in the [change ha
 
 ## Still required before operator/live integration
 
-1. Create the kind sample workload and traffic generator; initialize zero-valued counters and prove Compose-to-kind connectivity with namespace-scoped read credentials.
+1. The [kind sample and traffic fixture](../../infra/kind/README.md) now exists, including initialized counters and private Prometheus networking. Add namespace-scoped MCP Kubernetes read credentials and prove its TLS API connectivity; developer fixture credentials must never be reused. See the [fixture handoff](../KIND_FIXTURE_HANDOFF.md) for later live acceptance.
 2. Add authenticated API intake, durable jobs and the evidence mapping/persistence bridge. The API currently accepts only the synthetic provider. Transport evidence and API UUID records have different contracts; no direct compatibility is claimed.
 3. Replace `MemorySaver` with durable checkpointing and coordinate idempotent API result ingestion through a job/outbox. No approval interrupt, restart recovery or distributed worker serialization is implemented.
 4. Implement structured provider output and remove fixed-confidence/root-cause assertions. Citation membership alone does not prove a supported diagnosis. Live model endpoints and response shape need a credential-gated test.

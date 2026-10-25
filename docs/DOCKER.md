@@ -22,8 +22,12 @@ docker compose --parallel 1 up --build --wait --wait-timeout 180 db api web prom
 
 This command is useful for isolating monitoring-image download failures. It does not start or verify Grafana, and `scripts/smoke.py` still requires all five services. Do not treat a partial-stack check as a full smoke-test pass. Phase 0 of the [implementation plan](IMPLEMENTATION_PLAN.md) requires a new full-stack check.
 
-## Planned kind and MCP topology
+## Kind fixture and MCP topology
 
-Keep Compose as the local packaging entry point for the existing five services and one future FixProof MCP server. kind runs the sample app in `fixproof-demo`. Prometheus and the verifier need a documented host-mapped sample endpoint; MCP needs a restricted Kubernetes API credential whose server address is reachable **from inside its container**. On Docker Desktop this can use the published kind API endpoint through `host.docker.internal`; document the equivalent Linux host-gateway mapping. Test both paths during bootstrap.
+`compose.yaml` now includes the AI/MCP scaffolds alongside the original five core services. The optional `compose.kind.yaml` connects Prometheus and MCP to Docker's private `kind` network. The sample runs in cluster/namespace `fixproof-demo`; containers reach its NodePort at `fixproof-demo-control-plane:30080`, while the host uses loopback port 18080. Base Compose remains usable without kind. See the [fixture runbook](../infra/kind/README.md).
 
-Only MCP receives the namespace-scoped Kubernetes credential. Only API receives the Nebius key. Keep MCP on the internal Compose network without a public listener, keep developer ports on loopback, and leave generated kubeconfigs and database data out of Git. Nebius inference requires outbound HTTPS, while local history and manual inspection should remain available when it is offline.
+The fixture manager uses an ignored dedicated kubeconfig and a checksum-verified kubectl matching the pinned node version. It never changes the global context. Developer fixture bootstrap/fault/reset uses local cluster setup authority; that kubeconfig is never mounted into API, AI or MCP. Restricted MCP Kubernetes credentials and a reachable TLS API endpoint remain Phase 3 work. Do not substitute the developer kubeconfig.
+
+The old Grafana checksum failure above is historical. The current feature branch successfully pulled the same pinned Grafana image, built the API/web/AI/MCP runtime images, started all seven services and passed the unmodified full-stack HTTP smoke test. Container regression results and the separate live kind acceptance are recorded in the [fixture handoff](KIND_FIXTURE_HANDOFF.md). Smoke adds explicitly synthetic incident/billing history; no existing database records or volume were deleted.
+
+Keep inference keys and infrastructure credentials scoped to their owning service before live integration; the current shared local environment-file pattern is not a production secret-distribution system. Nebius is owned by AI, Kubernetes credentials by MCP, and execution capability issuance by API. No service currently enables the restore tool.

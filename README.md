@@ -2,7 +2,7 @@
 
 FixProof is a local-first, self-hosted AI DevOps investigation and remediation assistant for solo developers and small teams. Its intended MVP accepts an incident in a local kind cluster, collects Prometheus and Kubernetes evidence through one controlled MCP server, investigates with NVIDIA Nemotron through Nebius Token Factory, requires exact human approval for a bounded fix, and independently verifies recovery. The UI, API, integrations, and incident history run locally; live AI inference needs internet access to Nebius. Verified remediation is the product goal.
 
-The current foundation runs locally with synthetic evidence and billing data, so it needs no AWS credentials or external model key. Phase 2 implemented normalized investigations/evidence, exact-hash approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. Separate MCP and AI service scaffolds now exist, but they are not connected to the API's durable incident lifecycle. Missing live telemetry and model access lead to `needs_review`; the restore action remains disabled. There is no kind sample workload or real recovery verification yet. See the [current MCP and AI status](docs/agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md).
+The current foundation runs locally with synthetic evidence and billing data, so it needs no AWS credentials or external model key. Phase 2 implemented normalized investigations/evidence, exact-hash approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. Separate MCP and AI service scaffolds now exist, but they are not connected to the API's durable incident lifecycle. Missing live telemetry and model access lead to `needs_review`; the restore action remains disabled. A developer-operated kind sample fixture now provides a real configuration fault, traffic and Prometheus measurements; product recovery verification is still planned. See the [fixture runbook](infra/kind/README.md). See the [current MCP and AI status](docs/agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md).
 
 ## Run locally
 
@@ -53,11 +53,12 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 - `apps/ai`: advisory investigation graph, MCP client, model adapter, and agent tests. See the [implementation record](docs/agentic_architecture/FAIL_CLOSED_IMPLEMENTATION.md).
 - `apps/mcp`: bounded read tools for the registered demo target and MCP tests. The service is available only on the Compose network.
 - `apps/web`: React operator console, generated API types, and component/client tests.
-- `infra`: Prometheus and provisioned Grafana configuration.
+- `apps/sample`: observable HTTP sample and steady traffic generator.
+- `infra`: kind fixture manifests, Prometheus and provisioned Grafana configuration.
 - `scripts/smoke.py`: HTTP smoke check of the running stack.
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md): ordered work packages and exit gates for the real incident MVP.
 - [Initial incident](docs/INITIAL_INCIDENT.md) and [incident intake](docs/INCIDENT_INTAKE.md): first fault and reporting contract.
 - [Phase 2 handoff](docs/PHASE_2_HANDOFF.md): backend acceptance evidence, safety boundaries and review gates.
-- [Project blueprint](docs/PROJECT_BLUEPRINT.md), [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
+- [Project blueprint](docs/ProjectBlueprint/PROJECT_BLUEPRINT.md), [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
 
-The next product milestone is a reproducible kind workload fault, followed by manual intake, real evidence, live Nemotron investigation, a scoped restore action, and measured verification. Optional GitHub context and broader cloud integrations follow that workflow.
+The kind fixture is the local infrastructure milestone. Product integration proceeds through authenticated manual intake, persisted real evidence, live Nemotron investigation, exact approval, a scoped restore action and independent recovery verification. Optional GitHub context and broader cloud integrations follow that workflow.

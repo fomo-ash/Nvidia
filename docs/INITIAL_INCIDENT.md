@@ -1,6 +1,6 @@
 # Initial incident: unhealthy sample application
 
-**Status: planned MVP scenario.** No sample application, fault injector, kind manifests, or live evidence collector exists in the repository yet. This scenario defines the first end-to-end implementation target.
+**Status: fixture implemented; product integration remains planned.** The sample application, guarded developer fault/reset scripts and kind manifests now live in `apps/sample`, `scripts/kind_fixture.py` and `infra/kind`. See the [fixture runbook](../infra/kind/README.md) for setup and verification. This is not an agent execution path or an API-persisted live evidence collector.
 
 ## Setup and trigger
 
