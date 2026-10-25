@@ -1,31 +1,30 @@
 # MCP and AI implementation status
 
-The repository contains separate `apps/mcp` and `apps/ai` services. They are scaffolds for the planned local kind investigation, not a completed remediation workflow.
+AI and MCP remain read-only scaffolds for the planned local kind workflow. The [architecture contract](README.md) defines service authority, the [implementation plan](../IMPLEMENTATION_PLAN.md) defines delivery order, and this file records implementation limits. Historical fail-closed work is recorded [separately](FAIL_CLOSED_IMPLEMENTATION.md).
 
-For the exact failure path, tool bounds, graph routing, Jev role, and verification commands, see [Fail-closed MCP and agent implementation](FAIL_CLOSED_IMPLEMENTATION.md).
+## Implemented
 
-## What works
+- MCP exposes five bounded read tools over SSE/private REST. Source failure never substitutes synthetic readings. Restore remains absent from the registry/routes and its internal compatibility function always fails.
+- Each new AI investigation receives a fresh run UUID, independent of incident identity. Reinvestigation collects new evidence instead of appending to an older checkpoint. Chat explicitly selects a run and checks its incident; its session history is also separated by run.
+- MCP evidence hashes bind ID, source, fact, raw payload, aware UTC observation time, mode and trust marker. AI retains that timestamp and rejects missing/naive/stale/future timestamps, wrong source/mode, or a mismatched hash. It also checks evidence age immediately before reasoning.
+- Metrics query only the registered sample job and `/api/work` route. Total, errors and source-scrape freshness share an explicit evaluation time. Source timestamps, query strings and window boundaries are retained; absent/nonfinite/stale data fails closed. Fractional counter increases are preserved.
+- AI/MCP dependency lockfiles are consumed by Docker and a dedicated two-service CI matrix. Both services use the same pinned Ruff version as the API; imported scaffolds have been formatted.
 
-- MCP advertises five read tools over SSE and exposes equivalent private REST endpoints. Queries are limited to the registered demo namespace, Deployment, metrics windows, and health URL. Kubernetes and Prometheus failures surface as errors instead of synthetic observations.
-- AI collects the available MCP evidence, records collection gaps, and routes insufficient investigations to `needs_review`. A live investigation requires a configured Nebius key; model failure or uncited output cannot generate a proposal. Explicit synthetic mode is for local tests only.
-- The restore function is disabled and is absent from the MCP tool list and HTTP routes. The API's existing operations adapter also remains unavailable.
-- Development Docker images include the test sources. Run `docker compose -f compose.checks.yaml run --build --rm mcp-checks` and the corresponding `ai-checks` command.
+## Local acceptance for this change
 
-## Verification recorded on this branch
+Checks run in separate Python 3.12 environments with no cloud credentials or infrastructure mutations. AI tests cover new-run isolation, chat run/incident mismatch, timestamp/hash tampering, source/mode validation, and expiry before reasoning. MCP tests cover common evaluation time, explicit query scope, scrape freshness, malformed/absent data, evidence hash binding and disabled mutation.
 
-- `docker compose -f compose.checks.yaml run --build --rm mcp-checks`: 8 passed.
-- `docker compose -f compose.checks.yaml run --build --rm ai-checks`: 8 passed.
-- `docker compose config --quiet` and Python compilation of both service packages passed.
-- A full Ruff run still reports style findings in the imported service scaffolds. It is not a passing release gate yet.
+The final test counts and verification boundaries are recorded in the [change handoff](EVIDENCE_CONTRACT_HANDOFF.md). Local results do not establish GitHub CI, live kind connectivity, Nebius response quality, or infrastructure recovery. Docker was stopped during the initial review; container build/full-stack acceptance must be checked separately.
 
-These checks use mocks and local test data. They do not establish live kind connectivity, model quality, or recovery.
+## Still required before operator/live integration
 
-## Required before real remediation
+1. Create the kind sample workload and traffic generator; initialize zero-valued counters and prove Compose-to-kind connectivity with namespace-scoped read credentials.
+2. Add authenticated API intake, durable jobs and the evidence mapping/persistence bridge. The API currently accepts only the synthetic provider. Transport evidence and API UUID records have different contracts; no direct compatibility is claimed.
+3. Replace `MemorySaver` with durable checkpointing and coordinate idempotent API result ingestion through a job/outbox. No approval interrupt, restart recovery or distributed worker serialization is implemented.
+4. Implement structured provider output and remove fixed-confidence/root-cause assertions. Citation membership alone does not prove a supported diagnosis. Live model endpoints and response shape need a credential-gated test.
+5. Finish ChatOps grounding: inject selected evidence into model context, persist tool reads, and validate against the complete retained evidence set. Selecting the correct run does not fix dynamic-tool citation handling. Add explicit inference/tool/concurrency budgets.
+6. Register a trusted baseline, persist exact target preconditions, and implement authenticated operator approval. Jev remains optional advisory input and never grants execution authority.
+7. Add service authentication, one-use execution capabilities, atomic Kubernetes preconditions, durable replay protection and pending-outcome reconciliation before any write permission/tool is enabled.
+8. Independently measure recovery using a complete post-action rollout/probe/traffic window. Current investigation metrics are not a verification verdict.
 
-1. Add the kind sample workload, namespace-scoped Kubernetes credentials and a reachable sample health URL. Verify access from inside the MCP container.
-2. Connect the API's incident/evidence records to the new services. The AI service currently uses an in-memory LangGraph checkpointer and does not persist evidence or proposals into the API database.
-3. Register and verify a trusted known-good template. Bind a proposal to the exact Deployment UID, resource version, bad and good template hashes, evidence, expiry, and authenticated operator approval.
-4. Implement a one-use execution capability, independent MCP preflight, replay protection, and measured recovery verification before enabling any Kubernetes write permission or restore tool.
-5. Exercise live Nebius output with a credential-gated test and confirm the model and response contract. The current analysis parser only extracts evidence IDs from free text; it is not the final structured investigation schema.
-
-The detailed architecture documents describe the intended design. This status file describes current behavior and is the source of truth when those plans differ from the code.
+No new approvable proposal or infrastructure mutation is enabled by these changes. The existing Phase 2 API foundation remains complete; the new MVP delivery phases are a separate roadmap.

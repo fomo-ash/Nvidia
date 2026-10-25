@@ -1,7 +1,7 @@
 # FixProof — Project Blueprint
 
 > **Purpose:** Master blueprint and single source of truth for the team while building and submitting FixProof.  
-> **Status:** Fully correlated with `docs/IMPLEMENTATION_PLAN.md`, `agentic_architecture/`, and active codebase.  
+> **Status:** Target design, not an implementation inventory. The [implementation plan](../IMPLEMENTATION_PLAN.md) controls delivery order; the [agentic contract](../agentic_architecture/README.md) controls service authority; [current status](../agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md) records what runs today.
 > **Repository:** Monorepo (`pnpm` workspaces for frontend/infra, Python for API/AI/MCP).  
 > **Architecture:** Web (React 19 / Vite) + API Control Plane (FastAPI) + AI Service (LangGraph + Jev + LangChain + Nemotron via Nebius) + MCP Server (Python SDK).  
 > **Scope:** Frozen MVP: One reproducible, local Kubernetes (`kind`) incident with verified empirical recovery.
@@ -27,6 +27,8 @@ When a service breaks after a deployment, engineers manually shuffle between das
 
 ## 2. Frozen MVP Scope
 
+The following are release requirements, not completed features. Jev is optional; its decisions never replace local safety checks.
+
 ### Included in MVP
 - **Local Kubernetes Runtime (`kind`):** Sample microservice deployed in namespace `fixproof-demo`.
 - **Deliberate Config Fault:** A new Deployment revision introduces `FAIL_MODE=on`. Pods stay process-ready (`/readyz`), but `/api/work` returns $>20\%$ HTTP 5xx errors and functional `/healthz` fails.
@@ -34,7 +36,7 @@ When a service breaks after a deployment, engineers manually shuffle between das
 - **Incident Intake:** Authenticated manual operator reporting (starts `unassessed`; deduplicates by target UID and symptom).
 - **One Controlled MCP Server (`apps/mcp/`):** Scoped namespace RBAC (no `cluster-admin`, no docker socket) exposing bounded read tools for Prometheus metrics, K8s Deployment/ReplicaSet status, pod logs, and direct probes.
 - **Dual AI Engine:**
-  - **System-1 (Jev / TypeSafe AI):** Fast, millisecond, non-generative decisions (`Choice`, `Score`, `Noul`) for incident triage, LangGraph branching, and fix risk scoring.
+  - **System-1 (Jev / TypeSafe AI):** Optional advisory typed decisions (`Choice`, `Score`, `Noul`) for incident triage, LangGraph branching, and fix risk scoring.
   - **System-2 (NVIDIA Nemotron 70B via Nebius Token Factory):** Deep causal reasoning, timeline synthesis, and mandatory evidence citations.
 - **Trusted Known-Good Baseline:** The known-good pod template is captured during bootstrap. The AI is *never* asked to generate raw Kubernetes YAML.
 - **Exact Human Approval:** UI reviews exact diff, risk score, and SHA-256 digest. Approval is rejected if target state has drifted.
@@ -59,9 +61,9 @@ When a service breaks after a deployment, engineers manually shuffle between das
 | **Operator UI** | React 19 + Vite + TypeScript | Incident dashboard, evidence viewer, diff inspection, approval gate, and verification timeline |
 | **Control Plane API** | FastAPI + SQLAlchemy 2.0 + Pydantic | REST API, state machine, idempotency, approval locking, execution coordination, and verification engine |
 | **Durable Database** | PostgreSQL 16 (Primary) + Named Volume | Persistent incident history, Alembic migrations (`0001`–`0003`), LangGraph checkpoints, and immutable audit trail |
-| **Tool Server (MCP)** | Python MCP SDK (`FastMCP`) | Standardized read-only telemetry tools + one guarded patch tool with namespace-scoped RBAC |
-| **Lifecycle Orchestration** | LangGraph + `AsyncPostgresSaver` | Multi-step investigation state machine, retry logic, and Human-in-the-Loop pause (`interrupt()`) checkpointed to Postgres |
-| **Fast System-1 Decisions** | Jev (TypeSafe AI) | Typed, millisecond evaluations (`Choice`, `Score`, `Noul`) for symptom triage, graph routing, and fix risk scoring |
+| **Tool Server (MCP)** | Python MCP SDK (low-level `Server`) | Standardized read-only telemetry tools + one guarded patch tool with namespace-scoped RBAC |
+| **Lifecycle Orchestration** | LangGraph + `AsyncPostgresSaver` | Multi-step investigation state machine, retry logic, and optional waiting for API-owned approval; durable checkpoints remain planned |
+| **Fast System-1 Decisions** | Jev (TypeSafe AI) | Optional advisory typed evaluations (`Choice`, `Score`, `Noul`) for symptom triage, graph routing, and fix risk scoring |
 | **ChatOps & Tool Selection**| LangChain `create_agent` | Fluid, conversational ReAct assistant for interactive operator Q&A (`POST /chat`) with conversation memory |
 | **Deep System-2 Reasoning** | NVIDIA Nemotron 70B (Nebius Token Factory) | `nvidia/llama-3.1-nemotron-70b-instruct` over HTTPS for causal analysis and evidence citations |
 | **Telemetry / Metrics** | Prometheus v3 | Scrapes sample workload counters (`sample_http_requests_total`) and API metrics |
@@ -87,7 +89,7 @@ fixproof/
 │
 ├── agentic_architecture/      # Detailed agentic & tooling specifications
 │   ├── README.md              # System topology and triad model
-│   ├── MCP_ARCHITECTURE.md    # Custom FastMCP server blueprint
+│   ├── MCP_ARCHITECTURE.md    # Bounded MCP server specification
 │   └── AI_AGENT_ARCHITECTURE.md # LangGraph, Jev, and Nemotron design
 │
 ├── docs/                      # Authoritative specifications
@@ -131,7 +133,7 @@ flowchart TB
             NemotronSynth["Nemotron 70B Synthesis\n(System-2 Deep Reasoning)"]
             CitationGuard["Pydantic Citation Guard\n(Rejects Hallucinations)"]
             JevRisk["Jev Risk Rubric\n(Scores Blast Radius)"]
-            HITLGate["Human Approval Gate:\ninterrupt()"]
+            HITLGate["Optional wait for API-owned approval"]
         end
 
         subgraph ChatWF["LangChain ChatOps (POST /chat)"]
@@ -216,8 +218,8 @@ flowchart TB
 - Evaluates fresh post-patch signals and records final recovery verdict.
 
 ### `apps/ai` (AI Agent Service)
-- **Lifecycle Pipeline (LangGraph):** Orchestrates telemetry collection, Jev sufficiency checks, Nemotron deep causal reasoning, citation verification, and human approval interrupts checkpointed to PostgreSQL.
-- **Fast Decisions (Jev):** Millisecond evaluations of symptom classification, routing, and fix blast radius.
+- **Lifecycle Pipeline (LangGraph):** Orchestrates telemetry collection, Jev sufficiency checks, Nemotron deep causal reasoning, citation verification, and optional waiting for API-owned approval. Durable checkpointing is planned; current state is in memory.
+- **Fast Decisions (Jev):** Optional advisory evaluations of symptom classification, routing, and fix blast radius.
 - **ChatOps (LangChain `create_agent`):** Real-time conversational assistance allowing the operator to interrogate logs and metrics.
 - Recommends allowlisted actions (`restore_known_good_template`); never generates raw YAML.
 
@@ -253,10 +255,10 @@ sequenceDiagram
     Target-->>MCP: Raw readings
     MCP-->>AI: Bounded evidence snapshots (EVD-...)
     
-    Note over AI: Jev evaluates sufficiency (Noul). Telemetry confirmed!
+    Note over AI: Local evidence policy is mandatory; optional Jev advice cannot confirm the fault.
     AI->>AI: Prompt Nemotron 70B (cite evidence IDs)
     Note over AI: Citation Guard verifies all EVD-... IDs exist
-    Note over AI: Jev scores blast radius (Score: LOW)
+    Note over AI: Optional advisory risk; API policy always requires approval.
     AI->>DB: Checkpoint graph state to PostgreSQL (AsyncPostgresSaver)
     AI-->>API: Validated hypothesis + recommendation + risk level
     API->>DB: Store recommendation & SHA-256 digest
@@ -329,34 +331,34 @@ The data model uses PostgreSQL, managed by Alembic migrations (`0001`–`0003` e
 
 ---
 
-## 10. Five-Day Execution Plan
+## 10. Work packages (not a release schedule)
 
-### Day 1 — Observable Kind Fault & Sample Workload (Priority Focus)
+### Work package 1 — Observable Kind Fault & Sample Workload (Priority Focus)
 - [x] Baseline database schema, migrations `0001`–`0003`, and core API contracts complete.
 - [ ] Create `infra/kind/` cluster automation and deploy sample app (`apps/sample/`).
 - [ ] Implement sample app endpoints: `/readyz`, `/healthz`, `/api/work`, `/metrics`.
 - [ ] Configure `FAIL_MODE=on` fault injection and verify Prometheus scrapes 5xx errors.
 - [ ] Bootstrap baseline state capturing the known-good pod template.
 
-### Day 2 — Custom MCP Tool Server & Incident Intake
+### Work package 2 — Custom MCP Tool Server & Incident Intake
 - [ ] Add operator session authentication and `incident_triggers` migration in `apps/api`.
 - [ ] Build `apps/mcp/` container with scoped Kubernetes `ServiceAccount`.
 - [ ] Implement read tools: `query_metrics`, `get_deployment_status`, `get_pod_events`, `get_pod_logs`.
-- [ ] Implement guarded write tool: `restore_known_good_template` with capability verification.
+- [ ] Specify the guarded restore contract; keep the tool and Kubernetes write permissions disabled until implementation-plan Phase 6 and its preceding safety gates pass.
 
-### Day 3 — AI Agent Service (LangGraph + Jev + Nemotron)
+### Work package 3 — AI Agent Service (LangGraph + Jev + Nemotron)
 - [ ] Build `apps/ai/` container connecting to PostgreSQL checkpointer (`AsyncPostgresSaver`).
 - [ ] Implement Jev System-1 decision wrappers (`Choice`, `Score`, `Noul`).
-- [ ] Implement LangGraph lifecycle workflow with citation validation guard and human pause (`interrupt()`).
+- [ ] Implement LangGraph lifecycle workflow with citation validation guard and optional wait for API-owned approval; graph resume does not authorize execution.
 - [ ] Wire up LangChain `create_agent` for interactive operator ChatOps (`POST /chat`).
 - [ ] Build frontend review screen displaying cited evidence, diff, Jev risk score, and Approve/Reject buttons.
 
-### Day 4 — Guarded Execution & Empirical Verification
+### Work package 4 — Guarded Execution & Empirical Verification
 - [ ] Connect `POST /recommendations/{id}/execute` to trigger MCP's `restore_known_good_template`.
 - [ ] Implement post-patch verification loop: rollout readiness + 3x `/healthz` + 60s Prometheus traffic window.
 - [ ] Update frontend timeline to show empirical recovery verdict (`verified`, `failed`, or `inconclusive`).
 
-### Day 5 — Release Rehearsal & Submission
+### Work package 5 — Release Rehearsal & Submission
 - [ ] Execute full clean-machine demo runbook twice (`infra/` teardown and cold restart).
 - [ ] Verify negative test cases: rejected proposal, target drift, and inconclusive verification.
 - [ ] Record high-quality demo video and capture architectural screenshots.
@@ -368,7 +370,7 @@ The data model uses PostgreSQL, managed by Alembic migrations (`0001`–`0003` e
 
 1. **Repeatable Fault:** Running the fault command reliably pushes `/api/work` 5xx errors $>20\%$ and fails `/healthz`.
 2. **Real MCP Telemetry:** Tool server returns real Prometheus and Kubernetes snapshots with stable evidence IDs.
-3. **Calibrated & Explainable AI:** Jev scores risk in milliseconds; Nemotron diagnoses the fault citing real evidence IDs without inventing raw YAML.
+3. **Evidence-cited advisory AI:** Jev may advise risk; deterministic policy enforces safety; Nemotron diagnoses the fault citing real evidence IDs without inventing raw YAML.
 4. **Durable Persistence:** All graph states and approvals persist safely in PostgreSQL; zero state loss on restart.
 5. **Cryptographic Gate:** Execution is blocked unless the exact SHA-256 proposal hash was approved by the operator.
 6. **Single Guarded Patch:** Exactly one allowlisted patch restores the captured known-good pod template.

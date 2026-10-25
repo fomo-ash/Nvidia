@@ -57,9 +57,11 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 ## Phase 3 — collect real evidence through one MCP server
 
+A read-only MCP scaffold now exists; this phase remains incomplete until real kind connectivity and API evidence persistence pass. AI run isolation and timestamp checks do not complete that integration.
+
 **Implement**
 
-- Add `apps/mcp/` as the sole infrastructure tool server. Give it a scoped Kubernetes ServiceAccount/Role for the sample namespace and read-only Prometheus access. The Compose API is its only client. Do not mount a cluster-admin kubeconfig or Docker socket.
+- Add `apps/mcp/` as the sole infrastructure tool server. Give it a scoped Kubernetes ServiceAccount/Role for the sample namespace and read-only Prometheus access. API and AI are permitted bounded read clients; only the API may request future mutations with an independently validated execution capability. See [agentic authority contract](agentic_architecture/README.md). Do not mount a cluster-admin kubeconfig or Docker socket.
 - Bootstrap a restricted kubeconfig whose API-server address is reachable from inside the MCP container; refresh expiring credentials. On Windows Docker Desktop, validate the published kind endpoint via `host.docker.internal`; document the Linux host-gateway equivalent.
 - Implement bounded tools for approved Prometheus query templates, Deployment/ReplicaSet status, pods, events, and capped pod logs. Restrict namespace, target, time range, result size, and timeout. Mutation remains disabled.
 - Extend the existing `investigations` and `evidence_items` schema and APIs. They already retain normalized synthetic source/time/hash/trust data; add the target UID, observation window, redaction marker, bounded real payload, and per-source collection error needed for this incident. Keep existing generated contracts in sync. Missing sources are visible gaps, never generated facts.

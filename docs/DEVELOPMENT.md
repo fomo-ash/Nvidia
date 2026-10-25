@@ -43,3 +43,18 @@ These do not prove real workload recovery, external AI quality, AWS cost ingesti
 ## Next developer loop
 
 Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. First recheck the full five-service Compose path, including Grafana, because the earlier image checksum problem prevented a complete smoke. Next add the pinned kind sample workload and repeatable fault/reset commands. Then extend existing domain records for manual intake and real MCP evidence; keep synthetic rows visibly distinct. Add `NEBIUS_API_KEY` and the chosen Nemotron model only for the live provider phase; do not commit credentials. The final local loop is fault → report → evidence → cited proposal → approval → one scoped action → measured verification.
+
+## AI and MCP development
+
+Each service uses its own Python environment because all three Python applications currently use the top-level package name `app`. Do not install API, AI and MCP together in one environment. AI/MCP dependencies are resolved in per-service `uv.lock` files; CI and Docker use uv 0.9.17 with frozen installs.
+
+```sh
+uv sync --project apps/ai --frozen --extra dev
+uv sync --project apps/mcp --frozen --extra dev
+(cd apps/ai && uv run --frozen --extra dev pytest -q)
+(cd apps/mcp && uv run --frozen --extra dev pytest -q)
+```
+
+Use the same service directories for `ruff check app tests` and `ruff format --check app tests`. Intentional dependency updates regenerate the relevant lockfile and rerun that service's checks. Runtime Docker images install the frozen runtime dependencies; development targets add the locked test dependencies.
+
+These are internal scaffold endpoints, not the API's generated public contract. `POST /investigate` now returns a fresh `investigation_id`; `POST /chat` requires that ID together with its incident ID. Old clients that send only an incident must be updated. Evidence envelopes now bind IDs and observation timestamps into their hashes, so AI and MCP must be deployed together. Older cached envelopes are rejected. See the [architecture contract](agentic_architecture/README.md) for integration gates and current limits.
