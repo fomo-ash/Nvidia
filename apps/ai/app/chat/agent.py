@@ -12,7 +12,7 @@ from app.schemas.state import EvidenceReference
 from app.tools.langchain_tools import ALL_CHATOPS_TOOLS
 
 # In-memory session message store
-_CHAT_SESSIONS: dict[str, list[Any]] = {}
+_CHAT_SESSIONS: dict[tuple[str, str], list[Any]] = {}
 
 
 def get_chat_agent():
@@ -21,7 +21,7 @@ def get_chat_agent():
     return create_react_agent(
         model=llm,
         tools=ALL_CHATOPS_TOOLS,
-        state_modifier=CHATOPS_SYSTEM_PROMPT,
+        prompt=CHATOPS_SYSTEM_PROMPT,
     )
 
 
@@ -33,17 +33,13 @@ async def execute_chat(
 ) -> tuple[str, list[str]]:
     """Process operator message and return sanitized response with verified citations."""
     evidence = available_evidence or []
-    history = _CHAT_SESSIONS.setdefault(session_id, [])
+    history = _CHAT_SESSIONS.setdefault((incident_id, session_id), [])
 
     if settings.NEBIUS_API_KEY.startswith("mock") or not settings.NEBIUS_API_KEY:
-        response_text = (
-            f"Regarding incident {incident_id}: Analysis of telemetry indicates high 5xx error rates "
-            f"originating from sample-api with FAIL_MODE='on'. "
-            f"Evidence citations: {', '.join([ev.id for ev in evidence[:2]]) if evidence else 'EVD-mcp00001'}. "
-            f"To remediate safely, verify the deployment template restoration proposal in the dashboard."
-        )
+        response_text = "Live model analysis is unavailable. Review the collected evidence manually."
         history.append(HumanMessage(content=user_message))
         history.append(AIMessage(content=response_text))
+        del history[:-20]
         clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(response_text, evidence)
         return clean_text, citations
 
@@ -57,14 +53,11 @@ async def execute_chat(
 
         history.append(HumanMessage(content=user_message))
         history.append(AIMessage(content=response_text))
+        del history[:-20]
 
         clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(response_text, evidence)
         return clean_text, citations
     except Exception:
-        fallback_text = (
-            f"Incident {incident_id} telemetry shows elevated HTTP 5xx errors. "
-            f"The candidate root cause is FAIL_MODE='on' in deployment template. "
-            f"A guarded restoration proposal is ready for review."
-        )
+        fallback_text = "Model analysis is unavailable. Review the collected evidence manually."
         clean_text, citations = CitationValidatorGuard.sanitize_chat_citations(fallback_text, evidence)
         return clean_text, citations

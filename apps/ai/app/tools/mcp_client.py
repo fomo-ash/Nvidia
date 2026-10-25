@@ -1,7 +1,10 @@
-"""Client for communicating with FixProof MCP Tool Server using official MCP Python SDK."""
+"""Bounded client for the local MCP telemetry service."""
 
-from typing import Any
 import json
+import hashlib
+import asyncio
+from typing import Any
+
 import httpx
 from mcp import ClientSession
 from mcp.client.sse import sse_client
@@ -11,154 +14,83 @@ from app.schemas.state import EvidenceReference
 
 
 class McpClient:
-    """MCP client connecting via official MCP Python SDK over SSE with HTTP and mock fallbacks."""
-
     def __init__(self, base_url: str = settings.MCP_SERVER_URL) -> None:
         self.base_url = base_url.rstrip("/")
-        self.sse_url = f"{self.base_url}/sse"
 
-    async def _call_via_mcp_sdk(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        """Call tool via official MCP Python SDK (ClientSession + sse_client)."""
+    async def _call(self, name: str, arguments: dict[str, Any]) -> EvidenceReference:
+        data: dict[str, Any] | None = None
         try:
-            async with sse_client(self.sse_url) as (read_stream, write_stream):
-                async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
-                    res = await session.call_tool(tool_name, arguments=arguments)
-                    if res.content:
-                        for part in res.content:
-                            if hasattr(part, "text") and part.text:
-                                try:
-                                    parsed = json.loads(part.text)
-                                    if isinstance(parsed, dict):
-                                        return parsed
-                                except Exception:
-                                    pass
+            async with asyncio.timeout(8):
+                async with sse_client(f"{self.base_url}/sse") as streams:
+                    async with ClientSession(*streams) as session:
+                        await session.initialize()
+                        result = await session.call_tool(name, arguments=arguments)
+                        if result.isError:
+                            raise RuntimeError(f"MCP tool {name} failed")
+                        for part in result.content:
+                            if getattr(part, "text", None):
+                                data = json.loads(part.text)
+                                break
         except Exception:
+            # The REST adapter serves the same bounded tools on the private network.
             pass
-        return None
-
-    async def _call_via_http(self, endpoint_name: str, payload: dict[str, Any]) -> dict[str, Any] | None:
-        """Secondary HTTP endpoint fallback."""
-        url = f"{self.base_url}/tools/{endpoint_name}"
+        if data is None:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.post(
+                        f"{self.base_url}/tools/{name}", json=arguments
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+            except (httpx.HTTPError, ValueError) as exc:
+                raise RuntimeError(f"MCP telemetry unavailable: {name}") from exc
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                res = await client.post(url, json=payload)
-                if res.status_code == 200:
-                    return res.json()
-        except Exception:
-            pass
-        return None
+            evidence = EvidenceReference.model_validate(data)
+        except ValueError as exc:
+            raise RuntimeError(f"Invalid MCP evidence: {name}") from exc
+        source_by_tool = {
+            "query_metrics": "prometheus",
+            "get_deployment_status": "kubernetes:deployment",
+            "get_pod_events": "kubernetes:events",
+            "get_pod_logs": "kubernetes:logs",
+            "check_service_health": "direct:probe",
+        }
+        canonical = json.dumps(
+            {"source": evidence.source, "fact": evidence.fact, "raw_data": evidence.raw_data},
+            sort_keys=True,
+            default=str,
+        )
+        expected_hash = hashlib.sha256(canonical.encode()).hexdigest()
+        if (
+            evidence.mode != "live"
+            or evidence.source != source_by_tool[name]
+            or evidence.content_hash != expected_hash
+        ):
+            raise RuntimeError(f"MCP returned non-live or invalid evidence: {name}")
+        return evidence
 
     async def query_metrics(self, window: str = "1m") -> EvidenceReference:
-        """Fetch metrics evidence from MCP server."""
-        data = await self._call_via_mcp_sdk("query_metrics", {"window": window})
-        if data:
-            return EvidenceReference(**data)
-
-        data = await self._call_via_http("query_metrics", {"window": window})
-        if data:
-            return EvidenceReference(**data)
-
-        return EvidenceReference(
-            id="EVD-mcp00001",
-            content_hash="mock-hash-metrics",
-            source="prometheus",
-            fact=f"Prometheus traffic window '{window}': 120 total requests with 42 5xx errors (35.0% error ratio).",
-            raw_data={"window": window, "total_requests": 120, "error_requests_5xx": 42, "error_ratio": 0.35, "is_spike": True},
-            trusted=True,
-        )
+        return await self._call("query_metrics", {"window": window})
 
     async def get_deployment_status(
         self, namespace: str = "fixproof-demo", deployment_name: str = "sample-api"
     ) -> EvidenceReference:
-        """Fetch deployment status evidence from MCP server."""
-        args = {"namespace": namespace, "deployment_name": deployment_name}
-
-        data = await self._call_via_mcp_sdk("get_deployment_status", args)
-        if data:
-            return EvidenceReference(**data)
-
-        data = await self._call_via_http("get_deployment_status", args)
-        if data:
-            return EvidenceReference(**data)
-
-        return EvidenceReference(
-            id="EVD-mcp00002",
-            content_hash="mock-hash-deployment",
-            source="kubernetes:deployment",
-            fact=f"Deployment '{deployment_name}' in '{namespace}' has 1/1 ready replicas. Injected FAIL_MODE='on'.",
-            raw_data={
-                "namespace": namespace,
-                "deployment_name": deployment_name,
-                "env_vars": {"FAIL_MODE": "on", "PORT": "8080"},
-                "template_hash": "a1b2c3d4e5f6",
-            },
-            trusted=True,
+        return await self._call(
+            "get_deployment_status", {"namespace": namespace, "deployment_name": deployment_name}
         )
 
     async def get_pod_events(
         self, namespace: str = "fixproof-demo", limit: int = 20
     ) -> EvidenceReference:
-        """Fetch Kubernetes events evidence from MCP server."""
-        args = {"namespace": namespace, "limit": limit}
-
-        data = await self._call_via_mcp_sdk("get_pod_events", args)
-        if data:
-            return EvidenceReference(**data)
-
-        data = await self._call_via_http("get_pod_events", args)
-        if data:
-            return EvidenceReference(**data)
-
-        return EvidenceReference(
-            id="EVD-mcp00003",
-            content_hash="mock-hash-events",
-            source="kubernetes:events",
-            fact=f"Retrieved 2 events from namespace '{namespace}'. Found 0 Warning event(s).",
-            raw_data={"events": [], "warning_count": 0},
-            trusted=False,
-        )
+        return await self._call("get_pod_events", {"namespace": namespace, "limit": limit})
 
     async def get_pod_logs(
         self, namespace: str = "fixproof-demo", deployment_name: str = "sample-api", lines: int = 100
     ) -> EvidenceReference:
-        """Fetch bounded pod logs evidence from MCP server."""
-        args = {"namespace": namespace, "deployment_name": deployment_name, "lines": lines}
-
-        data = await self._call_via_mcp_sdk("get_pod_logs", args)
-        if data:
-            return EvidenceReference(**data)
-
-        data = await self._call_via_http("get_pod_logs", args)
-        if data:
-            return EvidenceReference(**data)
-
-        return EvidenceReference(
-            id="EVD-mcp00004",
-            content_hash="mock-hash-logs",
-            source="kubernetes:logs",
-            fact=f"Retrieved 6 lines of logs for '{deployment_name}'. Identified 3 line(s) indicating errors or FAIL_MODE.",
-            raw_data={"lines": ["Server started FAIL_MODE=on", "500 Internal Server Error"], "error_line_count": 3},
-            trusted=False,
+        return await self._call(
+            "get_pod_logs",
+            {"namespace": namespace, "deployment_name": deployment_name, "lines": lines},
         )
 
-    async def check_service_health(self, target_url: str = "") -> EvidenceReference:
-        """Fetch direct probe evidence from MCP server."""
-        args = {"target_url": target_url} if target_url else {}
-
-        data = await self._call_via_mcp_sdk("check_service_health", args)
-        if data:
-            return EvidenceReference(**data)
-
-        data = await self._call_via_http("check_service_health", args)
-        if data:
-            return EvidenceReference(**data)
-
-        return EvidenceReference(
-            id="EVD-mcp00005",
-            content_hash="mock-hash-probe",
-            source="direct:probe",
-            fact="Direct probe to '/readyz' returned HTTP 200 (healthy, latency 4.2ms).",
-            raw_data={"url": target_url, "status_code": 200, "is_healthy": True, "latency_ms": 4.2},
-            trusted=True,
-        )
+    async def check_service_health(self) -> EvidenceReference:
+        return await self._call("check_service_health", {})

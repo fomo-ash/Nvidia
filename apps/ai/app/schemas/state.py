@@ -12,6 +12,7 @@ class EvidenceReference(BaseModel):
     fact: str = Field(..., description="Synthesized telemetry observation fact")
     raw_data: dict[str, Any] = Field(default_factory=dict)
     trusted: bool = Field(default=False)
+    mode: str = Field(default="live")
 
 
 class Hypothesis(BaseModel):

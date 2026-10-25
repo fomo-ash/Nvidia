@@ -1,7 +1,5 @@
 """Nebius Token Factory / NVIDIA Nemotron 70B client configuration."""
 
-from typing import Any
-import json
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
@@ -27,6 +25,7 @@ async def generate_causal_analysis(
     namespace: str,
     deployment_name: str,
     evidence: list[EvidenceReference],
+    mode: str = "live",
 ) -> tuple[list[Hypothesis], str]:
     """Execute causal reasoning over evidence snapshots using Nemotron 70B."""
     lines = []
@@ -34,28 +33,27 @@ async def generate_causal_analysis(
         lines.append(f"- ID: {ev.id} | Source: {ev.source} | Hash: {ev.content_hash[:10]} | Fact: {ev.fact}")
     evidence_block = "\n".join(lines) if lines else "No evidence collected."
 
-    if settings.NEBIUS_API_KEY.startswith("mock") or not settings.NEBIUS_API_KEY:
+    if mode == "synthetic":
         return _synthetic_causal_reasoning(evidence)
+    if not settings.NEBIUS_API_KEY or settings.NEBIUS_API_KEY.startswith("mock"):
+        raise RuntimeError("Nebius credentials are unavailable for live investigation")
 
-    try:
-        llm = get_nemotron_llm()
-        user_prompt = CAUSAL_REASONING_USER_TEMPLATE.format(
-            incident_id=incident_id,
-            anomaly_id=anomaly_id,
-            namespace=namespace,
-            deployment_name=deployment_name,
-            evidence_block=evidence_block,
-        )
-        messages = [
-            SystemMessage(content=CAUSAL_REASONING_SYSTEM_PROMPT),
-            HumanMessage(content=user_prompt),
-        ]
-        response = await llm.ainvoke(messages)
-        text = response.content if isinstance(response.content, str) else str(response.content)
+    llm = get_nemotron_llm()
+    user_prompt = CAUSAL_REASONING_USER_TEMPLATE.format(
+        incident_id=incident_id,
+        anomaly_id=anomaly_id,
+        namespace=namespace,
+        deployment_name=deployment_name,
+        evidence_block=evidence_block,
+    )
+    messages = [
+        SystemMessage(content=CAUSAL_REASONING_SYSTEM_PROMPT),
+        HumanMessage(content=user_prompt),
+    ]
+    response = await llm.ainvoke(messages)
+    text = response.content if isinstance(response.content, str) else str(response.content)
 
-        return _parse_or_ground_hypotheses(text, evidence)
-    except Exception:
-        return _synthetic_causal_reasoning(evidence)
+    return _parse_or_ground_hypotheses(text, evidence)
 
 
 def _synthetic_causal_reasoning(evidence: list[EvidenceReference]) -> tuple[list[Hypothesis], str]:
@@ -112,15 +110,17 @@ def _parse_or_ground_hypotheses(response_text: str, evidence: list[EvidenceRefer
     """Extract hypotheses and ensure citations are present."""
     from app.guardrails.citations import CitationValidatorGuard
 
-    extracted_ids = list(CitationValidatorGuard.extract_evidence_ids(response_text))
+    extracted_ids = CitationValidatorGuard.extract_evidence_ids(response_text)
     valid_ids = {ev.id for ev in evidence}
-    matched_ids = [eid for eid in extracted_ids if eid in valid_ids]
+    if not extracted_ids or not extracted_ids <= valid_ids:
+        raise ValueError("Model response has missing or unknown evidence citations")
+    matched_ids = sorted(extracted_ids)
 
     hypotheses = [
         Hypothesis(
             cause=response_text[:300].strip(),
             confidence=0.92,
-            supporting_evidence_ids=matched_ids if matched_ids else [ev.id for ev in evidence[:2]],
+            supporting_evidence_ids=matched_ids,
             is_root_cause=True,
         )
     ]
