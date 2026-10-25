@@ -44,6 +44,47 @@ services:
       retries: 6
     networks: [fixproof]
     restart: unless-stopped
+  mcp:
+    build: { context: ./apps/mcp, target: runtime }
+    env_file: .env
+    environment:
+      HOST: "0.0.0.0"
+      PORT: 8002
+      PROMETHEUS_URL: "http://prometheus:9090"
+      KUBERNETES_NAMESPACE: "fixproof-demo"
+      CAPABILITY_SECRET: ${CAPABILITY_SECRET:-fixproof-local-capability-secret-key}
+    ports: ["127.0.0.1:8002:8002"]
+    networks: [fixproof]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+  ai:
+    build: { context: ./apps/ai, target: runtime }
+    env_file: .env
+    environment:
+      HOST: "0.0.0.0"
+      PORT: 8001
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:-mock-nebius-key}
+      NEBIUS_BASE_URL: ${NEBIUS_BASE_URL:-https://api.studio.nebius.ai/v1}
+      NEBIUS_MODEL: ${NEBIUS_MODEL:-nvidia/llama-3.1-nemotron-70b-instruct}
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY:-mock-typesafe-key}
+      JEV_API_KEY: ${JEV_API_KEY:-}
+      TYPESAFE_BASE_URL: ${TYPESAFE_BASE_URL:-https://api.typesafe.ai}
+      DATABASE_URL: ${AI_DATABASE_URL:-postgresql+asyncpg://fixproof:change-me-local-only@db:5432/fixproof}
+      MCP_SERVER_URL: "http://mcp:8002"
+      API_BASE_URL: "http://api:8000"
+    depends_on: { db: { condition: service_healthy }, mcp: { condition: service_healthy } }
+    ports: ["127.0.0.1:8001:8001"]
+    networks: [fixproof]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
   prometheus:
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]
