@@ -3,15 +3,9 @@
 import pytest
 from app.schemas.evidence import EvidenceItem
 from app.schemas.actions import RestoreActionRequest
-from app.tools import (
-    check_service_health,
-    get_deployment_status,
-    get_pod_events,
-    get_pod_logs,
-    query_metrics,
-    restore_known_good_template,
-)
+from app.tools import check_service_health, query_metrics, restore_known_good_template
 from app.server import list_tools, call_tool
+from app.adapters.kubernetes import KubernetesClient
 
 
 @pytest.mark.asyncio
@@ -28,19 +22,15 @@ async def test_evidence_item_content_hash():
 
 
 @pytest.mark.asyncio
-async def test_mcp_query_metrics():
-    """Verify metrics query tool."""
-    ev = await query_metrics(window="1m")
-    assert ev.source == "prometheus"
-    assert "window" in ev.raw_data
+async def test_mcp_query_metrics_rejects_unbounded_window():
+    with pytest.raises(ValueError):
+        await query_metrics(window="1h] or vector(1)")
 
 
 @pytest.mark.asyncio
-async def test_mcp_deployment_status():
-    """Verify deployment status tool."""
-    ev = await get_deployment_status()
-    assert ev.source == "kubernetes:deployment"
-    assert "template_hash" in ev.raw_data
+async def test_probe_rejects_arbitrary_url():
+    with pytest.raises(ValueError):
+        await check_service_health("http://localhost:8000/health")
 
 
 @pytest.mark.asyncio
@@ -59,17 +49,39 @@ async def test_mcp_guarded_mutation_auth():
 
 @pytest.mark.asyncio
 async def test_official_server_list_tools():
-    """Verify official MCP Server lists all 6 bounded tools."""
+    """Only read tools are advertised."""
     tools = await list_tools()
     tool_names = [t.name for t in tools]
-    assert len(tools) == 6
+    assert len(tools) == 5
     assert "query_metrics" in tool_names
-    assert "restore_known_good_template" in tool_names
+    assert "restore_known_good_template" not in tool_names
 
 
 @pytest.mark.asyncio
-async def test_official_server_call_tool():
-    """Verify official MCP Server call_tool routing."""
-    res = await call_tool("query_metrics", {"window": "1m"})
-    assert len(res) == 1
-    assert "prometheus" in res[0].text
+async def test_official_server_denies_mutation_tool():
+    with pytest.raises(ValueError):
+        await call_tool("restore_known_good_template", {})
+
+
+def test_kubernetes_scope_and_missing_credentials_fail_closed(tmp_path):
+    client = KubernetesClient()
+    with pytest.raises(ValueError):
+        client._require_target("kube-system", "sample-api")
+    with pytest.raises(ValueError):
+        client._require_target("fixproof-demo", "other-service")
+    client.ca_cert_path = str(tmp_path / "missing-ca")
+    with pytest.raises(RuntimeError):
+        client._connection()
+
+
+@pytest.mark.asyncio
+async def test_mutation_disabled_even_with_present_token():
+    request = RestoreActionRequest(
+        namespace="fixproof-demo",
+        deployment_name="sample-api",
+        expected_bad_template_hash="bad",
+        desired_good_template_hash="good",
+        capability_token="anything",
+    )
+    result = await restore_known_good_template(request)
+    assert result.status == "failed"

@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     SAMPLE_APP_HEALTH_URL: str = "http://localhost:8080/healthz"
 
     # Capability Signing Key (shared with apps/api for one-use execution tokens)
-    CAPABILITY_SECRET: str = "fixproof-local-capability-secret-key"
 
 
 settings = Settings()

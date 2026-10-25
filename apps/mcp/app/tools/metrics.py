@@ -6,8 +6,12 @@ from app.schemas.evidence import EvidenceItem
 
 async def query_metrics(window: str = "1m") -> EvidenceItem:
     """Query traffic and 5xx error rates from Prometheus."""
+    if window not in {"1m", "5m"}:
+        raise ValueError("Unsupported metrics window")
     client = PrometheusClient()
     metrics = await client.get_traffic_metrics(window=window)
+    if "error" in metrics:
+        raise RuntimeError("Prometheus telemetry is unavailable")
 
     total = metrics.get("total_requests", 0)
     errors = metrics.get("error_requests_5xx", 0)

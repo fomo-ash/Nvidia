@@ -7,6 +7,8 @@ from app.schemas.evidence import EvidenceItem
 
 async def check_service_health(target_url: str = settings.SAMPLE_APP_HEALTH_URL) -> EvidenceItem:
     """Probe an HTTP endpoint for readiness, status code, and response latency."""
+    if target_url != settings.SAMPLE_APP_HEALTH_URL:
+        raise ValueError("Probe URL is outside the registered target")
     client = ProbeClient()
     result = await client.check_endpoint(target_url)
 
