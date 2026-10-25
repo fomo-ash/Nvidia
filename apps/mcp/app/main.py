@@ -1,13 +1,11 @@
 """FastAPI host for Anthropic MCP Server and HTTP endpoints."""
 
-from typing import Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from starlette.requests import Request
 from mcp.server.sse import SseServerTransport
 
 from app.config import settings
-from app.schemas.actions import ActionResult, RestoreActionRequest
 from app.schemas.evidence import EvidenceItem
 from app.server import server
 from app.tools import (
@@ -16,7 +14,6 @@ from app.tools import (
     get_pod_events,
     get_pod_logs,
     query_metrics,
-    restore_known_good_template,
 )
 
 app = FastAPI(
@@ -57,7 +54,7 @@ class DeploymentStatusInput(BaseModel):
 
 class PodEventsInput(BaseModel):
     namespace: str = Field(default="fixproof-demo")
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int = Field(default=20, ge=1, le=20)
 
 
 class PodLogsInput(BaseModel):
@@ -102,11 +99,3 @@ async def handle_pod_logs(body: PodLogsInput | None = None) -> EvidenceItem:
 async def handle_service_health(body: ServiceHealthInput | None = None) -> EvidenceItem:
     url = body.target_url if body else settings.SAMPLE_APP_HEALTH_URL
     return await check_service_health(target_url=url)
-
-
-@app.post("/tools/restore_known_good_template", response_model=ActionResult, tags=["REST Tools"])
-async def handle_restore_template(body: RestoreActionRequest) -> ActionResult:
-    res = await restore_known_good_template(body)
-    if res.status == "failed":
-        raise HTTPException(status_code=403, detail=res.details)
-    return res

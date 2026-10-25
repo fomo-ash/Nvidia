@@ -2,7 +2,6 @@
 
 from typing import Any
 from app.decisions.jev_engine import JevDecisionEngine
-from app.guardrails.allowlist import ActionAllowlistGuard
 from app.guardrails.citations import CitationValidatorGuard
 from app.llm.nemotron import generate_causal_analysis
 from app.schemas.state import InvestigationState, RemediationCandidate
@@ -20,21 +19,21 @@ async def collect_telemetry_node(state: InvestigationState) -> dict[str, Any]:
     collected_sources = {ev.source for ev in existing_evidence}
 
     new_evidence = []
-
-    if "prometheus" not in collected_sources:
-        new_evidence.append(await mcp.query_metrics(window="1m"))
-
-    if "kubernetes:deployment" not in collected_sources:
-        new_evidence.append(await mcp.get_deployment_status(namespace=ns, deployment_name=dep))
-
-    if "kubernetes:logs" not in collected_sources:
-        new_evidence.append(await mcp.get_pod_logs(namespace=ns, deployment_name=dep, lines=50))
-
-    if "direct:probe" not in collected_sources:
-        new_evidence.append(await mcp.check_service_health())
-
-    if "kubernetes:events" not in collected_sources:
-        new_evidence.append(await mcp.get_pod_events(namespace=ns, limit=10))
+    errors = []
+    calls = [
+        ("prometheus", lambda: mcp.query_metrics(window="1m")),
+        ("kubernetes:deployment", lambda: mcp.get_deployment_status(namespace=ns, deployment_name=dep)),
+        ("kubernetes:logs", lambda: mcp.get_pod_logs(namespace=ns, deployment_name=dep, lines=50)),
+        ("direct:probe", mcp.check_service_health),
+        ("kubernetes:events", lambda: mcp.get_pod_events(namespace=ns, limit=10)),
+    ]
+    for source, call in calls:
+        if source in collected_sources:
+            continue
+        try:
+            new_evidence.append(await call())
+        except Exception:
+            errors.append(f"{source}: collection unavailable")
 
     current_attempts = state.get("sufficiency_attempts", 0) + 1
 
@@ -43,6 +42,7 @@ async def collect_telemetry_node(state: InvestigationState) -> dict[str, Any]:
         "telemetry_completed": True,
         "sufficiency_attempts": current_attempts,
         "investigation_status": "telemetry_collected",
+        "errors": errors,
     }
 
 
@@ -68,13 +68,22 @@ async def reason_causes_node(state: InvestigationState) -> dict[str, Any]:
     namespace = state.get("namespace", "fixproof-demo")
     deployment_name = state.get("deployment_name", "sample-api")
 
-    raw_hypotheses, summary = await generate_causal_analysis(
-        incident_id=incident_id,
-        anomaly_id=anomaly_id,
-        namespace=namespace,
-        deployment_name=deployment_name,
-        evidence=evidence,
-    )
+    try:
+        raw_hypotheses, summary = await generate_causal_analysis(
+            incident_id=incident_id,
+            anomaly_id=anomaly_id,
+            namespace=namespace,
+            deployment_name=deployment_name,
+            evidence=evidence,
+            mode=state.get("mode", "live"),
+        )
+    except Exception:
+        return {
+            "hypotheses": [],
+            "root_cause_summary": "Model analysis unavailable; manual review required.",
+            "investigation_status": "needs_review",
+            "errors": ["Model analysis unavailable"],
+        }
 
     verified_hypotheses = CitationValidatorGuard.validate_hypotheses(
         hypotheses=raw_hypotheses, available_evidence=evidence
@@ -121,51 +130,9 @@ async def score_risk_node(state: InvestigationState) -> dict[str, Any]:
 
 
 async def synthesize_proposal_node(state: InvestigationState) -> dict[str, Any]:
-    """Node 5: Package validated proposal and enforce action allowlist."""
-    ns = state.get("namespace", "fixproof-demo")
-    dep = state.get("deployment_name", "sample-api")
-    evidence = state.get("evidence", [])
-    hypotheses = state.get("hypotheses", [])
-
-    evidence_ids = []
-    for h in hypotheses:
-        if h.is_root_cause:
-            evidence_ids.extend(h.supporting_evidence_ids)
-
-    if not evidence_ids and evidence:
-        evidence_ids = [ev.id for ev in evidence[:3]]
-
-    template_hash = ""
-    for ev in evidence:
-        if ev.source == "kubernetes:deployment":
-            template_hash = ev.raw_data.get("template_hash", "")
-
-    action_type = "restore_known_good_template"
-    params = {
-        "namespace": ns,
-        "deployment_name": dep,
-        "expected_bad_template_hash": template_hash,
-        "desired_good_template_hash": "sample-api-known-good-hash",
-    }
-
-    is_allowed, reason = ActionAllowlistGuard.validate_action(action_type, params)
-    errors = []
-    proposal = None
-
-    if is_allowed:
-        proposal = {
-            "action_type": action_type,
-            "parameters": params,
-            "estimated_risk_level": "guarded",
-            "reversible": True,
-            "template_hash": template_hash,
-            "evidence_ids": list(set(evidence_ids)),
-        }
-    else:
-        errors.append(f"Proposal blocked by allowlist: {reason}")
-
+    """Keep analysis advisory until a trusted baseline is registered by the API."""
     return {
-        "remediation_proposal": proposal,
-        "investigation_status": "awaiting_approval" if proposal else "failed",
-        "errors": errors,
+        "remediation_proposal": None,
+        "investigation_status": "needs_review",
+        "errors": ["Trusted known-good template and exact approval binding are not configured"],
     }

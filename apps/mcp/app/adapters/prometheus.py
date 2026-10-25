@@ -1,6 +1,7 @@
 """Prometheus integration client for FixProof MCP Server."""
 
 import httpx
+import math
 from datetime import datetime, timezone
 from typing import Any
 from app.config import settings
@@ -20,6 +21,8 @@ class PrometheusClient:
 
     async def get_traffic_metrics(self, window: str = "1m") -> dict[str, Any]:
         """Query traffic total and 5xx error rate for sample-api."""
+        if window not in {"1m", "5m"}:
+            raise ValueError("Unsupported metrics window")
         try:
             total_expr = f"sum(increase(sample_http_requests_total{{job='fixproof-sample'}}[{window}]))"
             error_expr = f"sum(increase(sample_http_requests_total{{job='fixproof-sample',status_class='5xx'}}[{window}]))"
@@ -28,10 +31,14 @@ class PrometheusClient:
             error_res = await self.query(error_expr)
 
             def extract_val(res: dict[str, Any]) -> float:
+                if res.get("status") != "success":
+                    raise ValueError("Prometheus query failed")
                 results = res.get("data", {}).get("result", [])
                 if results and len(results[0].get("value", [])) > 1:
-                    return float(results[0]["value"][1])
-                return 0.0
+                    value = float(results[0]["value"][1])
+                    if math.isfinite(value) and value >= 0:
+                        return value
+                raise ValueError("Prometheus returned no finite sample")
 
             total_requests = int(extract_val(total_res))
             error_requests = int(extract_val(error_res))
@@ -45,12 +52,9 @@ class PrometheusClient:
                 "is_spike": error_ratio > 0.20 and total_requests >= 20,
                 "observed_at": datetime.now(timezone.utc).isoformat(),
             }
-        except Exception as e:
+        except (httpx.HTTPError, ValueError) as e:
             return {
                 "window": window,
-                "total_requests": 0,
-                "error_requests_5xx": 0,
-                "error_ratio": 0.0,
-                "error": str(e),
+                "error": type(e).__name__,
                 "observed_at": datetime.now(timezone.utc).isoformat(),
             }

@@ -17,6 +17,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
 
 FROM base AS development
 USER root
+COPY tests ./tests
 RUN uv pip install --no-cache '.[dev]'
 USER app
 

@@ -10,7 +10,7 @@ class ProbeClient:
         """Probe an HTTP endpoint and return response code, latency, and status."""
         start = time.perf_counter()
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
                 res = await client.get(url)
                 latency_ms = round((time.perf_counter() - start) * 1000, 2)
                 return {

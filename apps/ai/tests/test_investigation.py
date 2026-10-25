@@ -6,6 +6,8 @@ from app.guardrails.citations import CitationValidatorGuard
 from app.schemas.state import EvidenceReference, Hypothesis, RemediationCandidate
 from app.decisions.jev_engine import JevDecisionEngine
 from app.graph.workflow import investigation_workflow
+from app.llm.nemotron import _parse_or_ground_hypotheses, generate_causal_analysis
+from app.chat.agent import get_chat_agent
 
 
 @pytest.mark.asyncio
@@ -87,8 +89,18 @@ async def test_jev_risk_scoring():
 
 
 @pytest.mark.asyncio
-async def test_investigation_workflow_execution():
-    """Run full LangGraph workflow and verify state transitions and proposal generation."""
+async def test_investigation_workflow_execution(monkeypatch):
+    """Missing MCP evidence must leave the investigation for review."""
+    from app.graph import nodes
+
+    async def unavailable(*args, **kwargs):
+        raise RuntimeError("MCP offline")
+
+    for method in (
+        "query_metrics", "get_deployment_status", "get_pod_logs",
+        "get_pod_events", "check_service_health",
+    ):
+        monkeypatch.setattr(nodes.mcp, method, unavailable)
     initial_state = {
         "incident_id": "test-inc-001",
         "anomaly_id": "anom-001",
@@ -113,8 +125,31 @@ async def test_investigation_workflow_execution():
     config = {"configurable": {"thread_id": "test-thread-001"}}
     final_state = await investigation_workflow.ainvoke(initial_state, config=config)
 
-    assert final_state["investigation_status"] == "awaiting_approval"
-    assert len(final_state["evidence"]) > 0
-    assert len(final_state["hypotheses"]) > 0
-    assert final_state["remediation_proposal"] is not None
-    assert final_state["remediation_proposal"]["action_type"] == "restore_known_good_template"
+    assert final_state["investigation_status"] == "needs_review"
+    assert final_state["remediation_proposal"] is None
+
+
+def test_model_response_requires_real_citations():
+    evidence = [EvidenceReference(
+        id="EVD-12345678", content_hash="a" * 64,
+        source="prometheus", fact="observed error rate", trusted=True,
+    )]
+    with pytest.raises(ValueError):
+        _parse_or_ground_hypotheses("Likely rollout issue.", evidence)
+    with pytest.raises(ValueError):
+        _parse_or_ground_hypotheses("See EVD-deadbeef.", evidence)
+
+
+@pytest.mark.asyncio
+async def test_live_model_never_uses_synthetic_fallback(monkeypatch):
+    from app.llm import nemotron
+
+    monkeypatch.setattr(nemotron.settings, "NEBIUS_API_KEY", "mock-nebius-key")
+    with pytest.raises(RuntimeError):
+        await generate_causal_analysis(
+            "inc", "anom", "fixproof-demo", "sample-api", [], mode="live"
+        )
+
+
+def test_chat_agent_builds_with_installed_langgraph():
+    assert get_chat_agent() is not None

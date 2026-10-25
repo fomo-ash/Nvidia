@@ -6,18 +6,12 @@ Official documentation:
 - API Reference: https://api.typesafe.ai/ (v1/systemone)
 """
 
-from typing import Any, Sequence
+from typing import Sequence
 import httpx
 
 from app.config import settings
 from app.schemas.decisions import RiskEvaluation, SufficiencyEvaluation
 from app.schemas.state import EvidenceReference, RemediationCandidate
-
-try:
-    from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score
-except ImportError:
-    AsyncTypeSafeClient = None
-
 
 class JevDecisionEngine:
     """Official TypeSafe Jev System-1 Decision Engine for microsecond routing and risk scoring."""
@@ -43,7 +37,7 @@ class JevDecisionEngine:
         # 1. Check live Jev API if valid key is supplied
         if self.api_key and not self.api_key.startswith("mock"):
             state_text = "\n".join(
-                [f"[{ev.source}] {ev.fact} (data: {ev.raw_data})" for ev in evidence]
+                [f"[{ev.source}] {ev.fact[:300]}" for ev in evidence if ev.mode == "live"]
             )
             payload = {
                 "state": f"Incident Telemetry State:\n{state_text}",
@@ -82,7 +76,11 @@ class JevDecisionEngine:
                         noul_val = float(answers.get("is_sufficient", {}).get("noul", 0.0))
                         missing_choice = answers.get("missing_source", {}).get("choice", "none")
 
-                        is_sufficient = noul_val >= 0.70
+                        live_sources = {ev.source for ev in evidence if ev.mode == "live"}
+                        is_sufficient = (
+                            noul_val >= 0.70
+                            and {"prometheus", "kubernetes:deployment"} <= live_sources
+                        )
                         missing = []
                         if not is_sufficient and missing_choice != "none":
                             source_tag = missing_choice.replace("_", ":")
@@ -98,12 +96,12 @@ class JevDecisionEngine:
                 pass
 
         # 2. Deterministic high-speed rule engine fallback for local/offline dev
-        sources = {ev.source for ev in evidence}
+        sources = {ev.source for ev in evidence if ev.mode == "live"}
         has_metrics = "prometheus" in sources
         has_deployment = "kubernetes:deployment" in sources
         has_logs = "kubernetes:logs" in sources
 
-        if (has_metrics and has_deployment) or attempt >= 2:
+        if has_metrics and has_deployment:
             return SufficiencyEvaluation(
                 is_sufficient=True,
                 missing_sources=[],
@@ -175,10 +173,10 @@ class JevDecisionEngine:
                         approval_noul = float(answers.get("requires_human_approval", {}).get("noul", 0.9))
 
                         return RiskEvaluation(
-                            risk_tier=tier_choice,
+            risk_tier=tier_choice,
                             blast_radius="single_pod (fixproof-demo/sample-api)",
                             confidence=0.92,
-                            requires_human_approval=approval_noul >= 0.50,
+                            requires_human_approval=True,
                             rationale=f"Jev System-1 scored risk as '{tier_choice}' (approval probability: {round(approval_noul, 2)}).",
                         )
             except Exception:

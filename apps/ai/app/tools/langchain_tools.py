@@ -48,13 +48,9 @@ async def inspect_pod_logs(
 
 
 @tool
-async def probe_endpoint(target_url: str = "") -> dict[str, Any]:
-    """Perform a direct HTTP readiness or health probe to measure status code and latency.
-
-    Args:
-        target_url: Target URL to probe.
-    """
-    ev = await mcp_client.check_service_health(target_url=target_url)
+async def probe_endpoint() -> dict[str, Any]:
+    """Probe the registered sample service health endpoint."""
+    ev = await mcp_client.check_service_health()
     return ev.model_dump()
 
 

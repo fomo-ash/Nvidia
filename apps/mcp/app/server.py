@@ -6,13 +6,11 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from app.schemas.actions import RestoreActionRequest
 from app.tools.deployments import get_deployment_status as _get_deployment_status
 from app.tools.events import get_pod_events as _get_pod_events
 from app.tools.health import check_service_health as _check_service_health
 from app.tools.logs import get_pod_logs as _get_pod_logs
 from app.tools.metrics import query_metrics as _query_metrics
-from app.tools.patch import restore_known_good_template as _restore_known_good_template
 
 # Initialize Anthropic's official core Server
 server = Server("fixproof-mcp")
@@ -54,7 +52,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "namespace": {"type": "string", "default": "fixproof-demo"},
-                    "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
+                    "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 20},
                 },
             },
         ),
@@ -78,27 +76,6 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "target_url": {"type": "string", "description": "Target HTTP URL to probe"},
                 },
-            },
-        ),
-        Tool(
-            name="restore_known_good_template",
-            description="Guarded mutation tool: Restore known good deployment template after verifying capability token.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "namespace": {"type": "string"},
-                    "deployment_name": {"type": "string"},
-                    "expected_bad_template_hash": {"type": "string"},
-                    "desired_good_template_hash": {"type": "string"},
-                    "capability_token": {"type": "string"},
-                },
-                "required": [
-                    "namespace",
-                    "deployment_name",
-                    "expected_bad_template_hash",
-                    "desired_good_template_hash",
-                    "capability_token",
-                ],
             },
         ),
     ]
@@ -137,17 +114,6 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
         url = str(args.get("target_url", ""))
         evidence = await _check_service_health(target_url=url) if url else await _check_service_health()
         return [TextContent(type="text", text=evidence.model_dump_json())]
-
-    elif name == "restore_known_good_template":
-        req = RestoreActionRequest(
-            namespace=args["namespace"],
-            deployment_name=args["deployment_name"],
-            expected_bad_template_hash=args["expected_bad_template_hash"],
-            desired_good_template_hash=args["desired_good_template_hash"],
-            capability_token=args["capability_token"],
-        )
-        result = await _restore_known_good_template(req)
-        return [TextContent(type="text", text=result.model_dump_json())]
 
     else:
         raise ValueError(f"Unknown tool: '{name}'")
