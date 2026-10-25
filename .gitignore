@@ -16,3 +16,4 @@ test-results/
 *.egg-info/
 .ruff_cache/
 *.tsbuildinfo
+/project_context
