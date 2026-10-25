@@ -50,7 +50,7 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 ## Project map
 
 - `apps/api`: FastAPI routes, typed contracts, domain services, SQLAlchemy models, Alembic migrations, and tests.
-- `apps/ai`: advisory investigation graph, MCP client, model adapter, and agent tests.
+- `apps/ai`: advisory investigation graph, MCP client, model adapter, and agent tests. See the [implementation record](docs/agentic_architecture/FAIL_CLOSED_IMPLEMENTATION.md).
 - `apps/mcp`: bounded read tools for the registered demo target and MCP tests. The service is available only on the Compose network.
 - `apps/web`: React operator console, generated API types, and component/client tests.
 - `infra`: Prometheus and provisioned Grafana configuration.

@@ -2,6 +2,8 @@
 
 The repository contains separate `apps/mcp` and `apps/ai` services. They are scaffolds for the planned local kind investigation, not a completed remediation workflow.
 
+For the exact failure path, tool bounds, graph routing, Jev role, and verification commands, see [Fail-closed MCP and agent implementation](FAIL_CLOSED_IMPLEMENTATION.md).
+
 ## What works
 
 - MCP advertises five read tools over SSE and exposes equivalent private REST endpoints. Queries are limited to the registered demo namespace, Deployment, metrics windows, and health URL. Kubernetes and Prometheus failures surface as errors instead of synthetic observations.
