@@ -17,3 +17,4 @@ test-results/
 .ruff_cache/
 *.tsbuildinfo
 /project_context
+.pr_create_tmp.py
