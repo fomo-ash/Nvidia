@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fixproof-demo
+  labels:
+    fixproof.dev/fixture: observable-fault
+    pod-security.kubernetes.io/enforce: restricted

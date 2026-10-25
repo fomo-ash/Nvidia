@@ -1,0 +1,14 @@
+# Opt-in networking for the disposable sample cluster. No host kubeconfig mounts.
+services:
+  prometheus:
+    volumes:
+      - ./infra/prometheus/prometheus.kind.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [fixproof, kind-fixture]
+  mcp:
+    environment:
+      SAMPLE_APP_HEALTH_URL: http://fixproof-demo-control-plane:30080/healthz
+    networks: [fixproof, kind-fixture]
+networks:
+  kind-fixture:
+    external: true
+    name: kind

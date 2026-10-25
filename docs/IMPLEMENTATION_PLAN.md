@@ -12,8 +12,8 @@ Build one vertical path through real components. Each phase ends with a command 
 
 | Phase | Depends on | Deliverable demonstrated at exit | Status |
 |---|---|---|---|
-| 0. Confirm foundation | Current `main` | Full five-service Compose and Grafana smoke path verified; existing checks remain green | Partial: core stack and checks implemented |
-| 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Not started |
+| 0. Confirm foundation | Current `main` | Full five-service Compose and Grafana smoke path verified; existing checks remain green | Ready for review: full-stack smoke and container checks passed; see KIND_FIXTURE_HANDOFF.md |
+| 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Ready for review: two live fault/reset cycles passed; see KIND_FIXTURE_HANDOFF.md |
 | 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Not started |
 | 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Not started |
 | 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Not started |
@@ -26,6 +26,8 @@ The phases are ordered for a solo developer. With several contributors, sample w
 
 ## Phase 0 — confirm the existing foundation
 
+Local foundation acceptance now passes on `feat/kind-observable-fault`, including Grafana, all seven runtime services, the HTTP smoke and container regressions. CI/peer review remain merge gates. See [fixture handoff](KIND_FIXTURE_HANDOFF.md).
+
 **Implement**
 
 - Preserve the already implemented Nginx port/CORS fixes, development check images, migration tests, OpenAPI/type generation, proposal versioning, and mock labels. Do not redo those completed changes.
@@ -35,6 +37,8 @@ The phases are ordered for a solo developer. With several contributors, sample w
 **Exit gate:** the current core-stack and check suites remain green and the full five-service smoke passes. If the Grafana image pull is still blocked by the host environment, document that blocker and continue isolated kind work without marking Phase 0 complete. No kind or Nebius key is needed for this gate. The foundation and Phase 2 handoff retain their prior acceptance record.
 
 ## Phase 1 — create one observable fault
+
+Implemented and locally accepted on `feat/kind-observable-fault`: two healthy → fault → reset cycles passed with real Prometheus windows, revision changes and template restoration. [Acceptance record](KIND_FIXTURE_HANDOFF.md). CI and peer review remain pending; this does not complete authenticated incident intake or product remediation.
 
 **Implement**
 
