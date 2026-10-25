@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup dev up down logs migrate seed test lint contracts clean reset-data
 help:
-	@echo "Targets: setup dev up down logs migrate seed test lint contracts clean reset-data"
+	@echo "Targets: setup dev up down logs migrate seed test lint contracts clean reset-data kind-up kind-fault kind-reset kind-status kind-verify kind-down"
 setup:
 	@docker compose pull
 dev:
@@ -34,3 +34,18 @@ clean:
 reset-data:
 	@docker compose down -v
 	@echo "Removed Docker volumes, including local PostgreSQL data."
+
+.PHONY: kind-up kind-fault kind-reset kind-status kind-verify kind-down
+kind-up:
+	@python3 scripts/kind_fixture.py up
+	@docker compose -f compose.yaml -f compose.kind.yaml up -d prometheus mcp
+kind-fault:
+	@python3 scripts/kind_fixture.py fault
+kind-reset:
+	@python3 scripts/kind_fixture.py reset
+kind-status:
+	@python3 scripts/kind_fixture.py status
+kind-verify:
+	@python3 scripts/kind_fixture.py verify --cycles 2
+kind-down:
+	@python3 scripts/kind_fixture.py down
