@@ -1,6 +1,6 @@
 # Observable kind fixture handoff
 
-Branch: `feat/kind-observable-fault`, based on committed `fix/agent-evidence-contracts` work. Merge/review that prerequisite first if it has not reached main. This branch has not been committed or pushed by the agent.
+This records acceptance from the `feat/kind-observable-fault` branch, now merged into `main` through PR #7. The observations below were made on the recorded macOS host; they have not been repeated on this Windows workspace.
 
 ## Scope
 
@@ -37,6 +37,6 @@ Toolchain: Docker 29.9.1, kind 0.33.0, project-local kubectl 1.34.0, Kubernetes 
 
 ## Remaining gates
 
-GitHub CI and peer review remain pending. The fixture is not authenticated incident intake, API-persisted live evidence, a trusted production baseline registry, live Nemotron diagnosis, an approved product action, or independent product recovery verification. Those remain later phases. Generated kubeconfig and local acceptance records stay in ignored `.local/kind/`; only redacted acceptance evidence belongs in versioned docs.
+The fixture is not authenticated incident intake, API-persisted live evidence, a trusted production baseline registry, live Nemotron diagnosis, an approved product action, or independent product recovery verification. Those remain later phases. Generated kubeconfig and local acceptance records stay in ignored `.local/kind/`; only redacted acceptance evidence belongs in versioned docs.
 
 Use [the fixture runbook](../infra/kind/README.md) for normal fault/reset/status/teardown commands. Leave the sample healthy after development. The developer can intentionally delete the owned demo cluster; this never deletes the Compose database.

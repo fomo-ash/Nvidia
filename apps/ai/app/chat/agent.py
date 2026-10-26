@@ -1,12 +1,12 @@
 """Interactive ChatOps agent using LangChain ReAct loop and MCP tools."""
 
 from typing import Any
+
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.prebuilt import create_react_agent
 
-from app.config import settings
 from app.guardrails.citations import CitationValidatorGuard
-from app.llm.nemotron import get_nemotron_llm
+from app.llm.nemotron import get_nemotron_llm, live_model_available
 from app.llm.prompts import CHATOPS_SYSTEM_PROMPT
 from app.schemas.state import EvidenceReference
 from app.tools.langchain_tools import ALL_CHATOPS_TOOLS
@@ -35,7 +35,7 @@ async def execute_chat(
     evidence = available_evidence or []
     history = _CHAT_SESSIONS.setdefault((incident_id, session_id), [])
 
-    if settings.NEBIUS_API_KEY.startswith("mock") or not settings.NEBIUS_API_KEY:
+    if not live_model_available():
         response_text = (
             "Live model analysis is unavailable. Review the collected evidence manually."
         )

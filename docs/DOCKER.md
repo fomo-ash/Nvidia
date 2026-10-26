@@ -1,6 +1,6 @@
 # Docker
 
-compose.yaml runs the application on a fixproof bridge network: web, API, PostgreSQL, Prometheus, and Grafana. Published ports are loopback-only: web 5173 → 8080, API 8000, Prometheus 9090, Grafana 3000. PostgreSQL is internal.
+compose.yaml runs web, API, PostgreSQL, Prometheus, Grafana, AI and MCP on the fixproof bridge network. Published Compose ports bind to loopback: web 5173, API 8000, Prometheus 9090, and Grafana `${GRAFANA_PORT:-3000}`. PostgreSQL, AI and MCP are internal. The separate kind fixture maps host port 18080 to loopback; see [its runbook](../infra/kind/README.md).
 
 The API image installs the actual application package after copying its sources, runs as an unprivileged user, migrates before startup, and execs Uvicorn so shutdown signals reach the server. Its health check uses migrated-database readiness. Production deployments should run migrations as a separate job.
 
@@ -28,6 +28,6 @@ This command is useful for isolating monitoring-image download failures. It does
 
 The fixture manager uses an ignored dedicated kubeconfig and a checksum-verified kubectl matching the pinned node version. It never changes the global context. Developer fixture bootstrap/fault/reset uses local cluster setup authority; that kubeconfig is never mounted into API, AI or MCP. Restricted MCP Kubernetes credentials and a reachable TLS API endpoint remain Phase 3 work. Do not substitute the developer kubeconfig.
 
-The old Grafana checksum failure above is historical. The current feature branch successfully pulled the same pinned Grafana image, built the API/web/AI/MCP runtime images, started all seven services and passed the unmodified full-stack HTTP smoke test. Container regression results and the separate live kind acceptance are recorded in the [fixture handoff](KIND_FIXTURE_HANDOFF.md). Smoke adds explicitly synthetic incident/billing history; no existing database records or volume were deleted.
+The old Grafana checksum failure above is historical. The fixture branch successfully pulled the same pinned Grafana image, built the API/web/AI/MCP runtime images, started all seven services and passed the full-stack HTTP smoke test on its recorded host. Container regression results and the separate live kind acceptance are recorded in the [fixture handoff](KIND_FIXTURE_HANDOFF.md). Smoke adds explicitly synthetic incident/billing history; no existing database records or volume were deleted.
 
-Keep inference keys and infrastructure credentials scoped to their owning service before live integration; the current shared local environment-file pattern is not a production secret-distribution system. Nebius is owned by AI, Kubernetes credentials by MCP, and execution capability issuance by API. No service currently enables the restore tool.
+Keep inference keys and infrastructure credentials scoped to their owning service before live integration; the current shared local environment-file pattern is not a production secret-distribution system. The AI service uses Groq temporarily through `GROQ_API_KEY` and later Nebius through `NEBIUS_API_KEY`; Kubernetes credentials belong to MCP, and execution capability issuance belongs to API. No service currently enables the restore tool.

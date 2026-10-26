@@ -65,7 +65,7 @@ async def evaluate_sufficiency_node(state: InvestigationState) -> dict[str, Any]
 
 
 async def reason_causes_node(state: InvestigationState) -> dict[str, Any]:
-    """Node 3: NVIDIA Nemotron 70B causal reasoning with evidence grounding."""
+    """Node 3: Selected live model reasoning with evidence grounding."""
     evidence = state.get("evidence", [])
     incident_id = state.get("incident_id", "inc-unknown")
     anomaly_id = state.get("anomaly_id", "anom-unknown")

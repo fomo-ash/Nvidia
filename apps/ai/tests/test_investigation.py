@@ -3,13 +3,19 @@
 from datetime import datetime, timezone
 
 import pytest
-from app.guardrails.allowlist import ActionAllowlistGuard
-from app.guardrails.citations import CitationValidatorGuard
-from app.schemas.state import EvidenceReference, Hypothesis, RemediationCandidate
+
+from app.chat.agent import get_chat_agent
 from app.decisions.jev_engine import JevDecisionEngine
 from app.graph.workflow import investigation_workflow
-from app.llm.nemotron import _parse_or_ground_hypotheses, generate_causal_analysis
-from app.chat.agent import get_chat_agent
+from app.guardrails.allowlist import ActionAllowlistGuard
+from app.guardrails.citations import CitationValidatorGuard
+from app.llm.nemotron import (
+    _parse_or_ground_hypotheses,
+    generate_causal_analysis,
+    live_model_available,
+    live_model_config,
+)
+from app.schemas.state import EvidenceReference, Hypothesis, RemediationCandidate
 
 
 @pytest.mark.asyncio
@@ -177,6 +183,7 @@ def test_model_response_requires_real_citations():
 async def test_live_model_never_uses_synthetic_fallback(monkeypatch):
     from app.llm import nemotron
 
+    monkeypatch.setattr(nemotron.settings, "LLM_PROVIDER", "nebius")
     monkeypatch.setattr(nemotron.settings, "NEBIUS_API_KEY", "mock-nebius-key")
     with pytest.raises(RuntimeError):
         await generate_causal_analysis(
@@ -184,5 +191,29 @@ async def test_live_model_never_uses_synthetic_fallback(monkeypatch):
         )
 
 
-def test_chat_agent_builds_with_installed_langgraph():
+def test_groq_provider_uses_only_groq_credentials(monkeypatch):
+    from app.llm import nemotron
+
+    monkeypatch.setattr(nemotron.settings, "LLM_PROVIDER", "groq")
+    monkeypatch.setattr(nemotron.settings, "GROQ_API_KEY", "groq-test-key")
+    monkeypatch.setattr(nemotron.settings, "NEBIUS_API_KEY", "nebius-test-key")
+    assert live_model_config() == (
+        nemotron.settings.GROQ_MODEL,
+        "groq-test-key",
+        "https://api.groq.com/openai/v1",
+    )
+    assert live_model_available()
+    monkeypatch.setattr(nemotron.settings, "GROQ_API_KEY", "")
+    assert not live_model_available()
+    monkeypatch.setattr(nemotron.settings, "LLM_PROVIDER", "other")
+    assert not live_model_available()
+    with pytest.raises(RuntimeError):
+        live_model_config()
+
+
+def test_chat_agent_builds_with_installed_langgraph(monkeypatch):
+    from app.llm import nemotron
+
+    monkeypatch.setattr(nemotron.settings, "LLM_PROVIDER", "groq")
+    monkeypatch.setattr(nemotron.settings, "GROQ_API_KEY", "groq-test-key")
     assert get_chat_agent() is not None

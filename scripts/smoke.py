@@ -1,6 +1,7 @@
 """Check the running local demo through its public HTTP boundaries (Python stdlib only)."""
 
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -35,7 +36,7 @@ def main():
     assert b'id="root"' in request("/incidents", base="http://localhost:5173")
     for base, path in [
         ("http://localhost:9090", "/-/ready"),
-        ("http://localhost:3000", "/api/health"),
+        (os.getenv("GRAFANA_URL", "http://localhost:3000"), "/api/health"),
     ]:
         deadline = time.monotonic() + 60
         while True:

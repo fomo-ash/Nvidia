@@ -12,4 +12,4 @@ node_modules
 docs
 sample-data
 
-.local/kind
+.local/

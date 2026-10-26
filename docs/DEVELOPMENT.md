@@ -42,7 +42,7 @@ These do not prove real workload recovery, external AI quality, AWS cost ingesti
 
 ## Next developer loop
 
-Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. First recheck the full five-service Compose path, including Grafana, because the earlier image checksum problem prevented a complete smoke. Next add the pinned kind sample workload and repeatable fault/reset commands. Then extend existing domain records for manual intake and real MCP evidence; keep synthetic rows visibly distinct. Add `NEBIUS_API_KEY` and the chosen Nemotron model only for the live provider phase; do not commit credentials. The final local loop is fault → report → evidence → cited proposal → approval → one scoped action → measured verification.
+Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. The [kind fixture runbook](../infra/kind/README.md) and [acceptance handoff](KIND_FIXTURE_HANDOFF.md) record the completed local foundation and two-cycle workload checks. This Windows workspace still needs a full rebuild after Docker registry DNS is restored. The next product integration is authenticated incident intake and real MCP evidence. For temporary live model calls, set `LLM_PROVIDER=groq` and `GROQ_API_KEY` in ignored `.env`; switch to `LLM_PROVIDER=nebius` with its own key later. Do not commit credentials. The final loop is fault -> report -> evidence -> cited proposal -> approval -> one scoped action -> measured verification.
 
 ## AI and MCP development
 

@@ -15,7 +15,7 @@ from app.schemas.api import (
 
 app = FastAPI(
     title="FixProof AI Agent Service",
-    description="Intelligent SRE reasoning service combining LangGraph state machines, TypeSafe Jev decisions, and NVIDIA Nemotron 70B.",
+    description="SRE reasoning service with bounded MCP evidence and a selected Groq or Nebius model.",
     version="0.1.0",
 )
 

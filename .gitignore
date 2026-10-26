@@ -19,5 +19,5 @@ test-results/
 /project_context
 .pr_create_tmp.py
 
-# Disposable fixture kubeconfig, captured baseline and acceptance evidence
-.local/kind/
+# Local tools, credentials, captured baselines and acceptance evidence
+.local/
