@@ -1,21 +1,45 @@
-"""Nebius Token Factory / NVIDIA Nemotron 70B client configuration."""
+"""Evidence-grounded analysis through the selected OpenAI-compatible provider."""
 
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.config import settings
 from app.llm.prompts import CAUSAL_REASONING_SYSTEM_PROMPT, CAUSAL_REASONING_USER_TEMPLATE
 from app.schemas.state import EvidenceReference, Hypothesis
 
 
+def live_model_config() -> tuple[str, str, str]:
+    """Return model, key, and endpoint; fail closed on an unknown provider."""
+    provider = settings.LLM_PROVIDER.lower().strip()
+    if provider == "groq":
+        return settings.GROQ_MODEL, settings.GROQ_API_KEY, settings.GROQ_BASE_URL
+    if provider == "nebius":
+        return settings.NEBIUS_MODEL, settings.NEBIUS_API_KEY, settings.NEBIUS_BASE_URL
+    raise RuntimeError(f"Unsupported live LLM provider: {provider}")
+
+
+def live_model_available() -> bool:
+    """Mock credentials never authorize an external model call."""
+    try:
+        _, key, _ = live_model_config()
+    except RuntimeError:
+        return False
+    return bool(key and not key.startswith("mock"))
+
+
 def get_nemotron_llm() -> ChatOpenAI:
-    """Return configured ChatOpenAI pointing to Nebius Token Factory."""
+    """Return the selected live provider using the existing client interface."""
+    model, key, base_url = live_model_config()
+    if not live_model_available():
+        raise RuntimeError(f"{settings.LLM_PROVIDER} credentials are unavailable")
     return ChatOpenAI(
-        model=settings.NEBIUS_MODEL,
-        api_key=settings.NEBIUS_API_KEY,
-        base_url=settings.NEBIUS_BASE_URL,
+        model=model,
+        api_key=key,
+        base_url=base_url,
         temperature=0.1,
         max_tokens=2048,
+        timeout=20,
+        max_retries=1,
     )
 
 
@@ -27,7 +51,7 @@ async def generate_causal_analysis(
     evidence: list[EvidenceReference],
     mode: str = "live",
 ) -> tuple[list[Hypothesis], str]:
-    """Execute causal reasoning over evidence snapshots using Nemotron 70B."""
+    """Execute causal reasoning over evidence snapshots using the selected model."""
     lines = []
     for ev in evidence:
         lines.append(f"- ID: {ev.id} | Source: {ev.source} | Hash: {ev.content_hash[:10]} | Fact: {ev.fact}")
@@ -35,8 +59,8 @@ async def generate_causal_analysis(
 
     if mode == "synthetic":
         return _synthetic_causal_reasoning(evidence)
-    if not settings.NEBIUS_API_KEY or settings.NEBIUS_API_KEY.startswith("mock"):
-        raise RuntimeError("Nebius credentials are unavailable for live investigation")
+    if not live_model_available():
+        raise RuntimeError(f"{settings.LLM_PROVIDER} credentials are unavailable for live investigation")
 
     llm = get_nemotron_llm()
     user_prompt = CAUSAL_REASONING_USER_TEMPLATE.format(

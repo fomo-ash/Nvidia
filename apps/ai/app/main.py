@@ -1,6 +1,7 @@
 """FastAPI application entrypoint for FixProof AI Agent Service."""
 
 from fastapi import FastAPI
+
 from app.chat.agent import execute_chat
 from app.graph.workflow import investigation_workflow
 from app.schemas.api import (
@@ -13,7 +14,7 @@ from app.schemas.api import (
 
 app = FastAPI(
     title="FixProof AI Agent Service",
-    description="Intelligent SRE reasoning service combining LangGraph state machines, TypeSafe Jev decisions, and NVIDIA Nemotron 70B.",
+    description="SRE reasoning service with bounded MCP evidence and a selected Groq or Nebius model.",
     version="0.1.0",
 )
 

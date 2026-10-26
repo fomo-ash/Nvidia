@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8001
 
+    # Select the live model explicitly. Synthetic mode is selected per request.
+    LLM_PROVIDER: str = "nebius"
+
+    # Groq OpenAI-compatible API (temporary live provider)
+    GROQ_API_KEY: str = ""
+    GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
+
     # Nebius Token Factory / NVIDIA Nemotron 70B
     NEBIUS_API_KEY: str = "mock-nebius-key"
     NEBIUS_BASE_URL: str = "https://api.studio.nebius.ai/v1"
