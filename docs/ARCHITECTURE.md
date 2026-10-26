@@ -39,7 +39,7 @@ The target product sequence remains detect → investigate → explain → propo
 
 ## Target local kind MVP
 
-The first real incident is a deliberately faulty configuration in a new Deployment revision of the [sample application](INITIAL_INCIDENT.md). The MVP adds one local FixProof MCP server as the infrastructure boundary. The existing FastAPI lifecycle remains the policy and persistence owner; do not give Nemotron direct MCP access or move approval checks into the UI.
+The first real incident is a deliberately faulty configuration in a new Deployment revision of the [sample application](INITIAL_INCIDENT.md). The MVP adds one local FixProof MCP server as the infrastructure boundary. The existing FastAPI lifecycle remains the policy and persistence owner; AI orchestration may select bounded MCP read tools, but never receives mutation authority. Approval remains in the API, not the UI or graph resume payload. See the [agentic authority contract](agentic_architecture/README.md).
 
 ```mermaid
 flowchart LR

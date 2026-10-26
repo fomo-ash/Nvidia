@@ -1,247 +1,37 @@
-# FixProof — AI Agent Architecture (`apps/ai`)
+# AI service architecture
 
-> **Location:** `apps/ai/`  
-> **Framework:** FastAPI + LangGraph (Lifecycle Workflow) + LangChain `create_agent` (ChatOps & Dynamic Tools) + Jev (Fast Decisions) + NVIDIA Nemotron 70B (Nebius Token Factory)  
-> **Persistence:** Durable PostgreSQL Checkpointing (`AsyncPostgresSaver`)  
-> **Port:** `8001` (internal Docker network only)
+Status: advisory scaffold under `apps/ai`, internal port 8001. See the [authority contract](README.md) and [implementation status](CURRENT_IMPLEMENTATION_STATUS.md). This document supersedes the earlier example code and unmeasured latency table.
 
----
+## Framework responsibilities
 
-## 1. The Core Architectural Philosophy: Right Tool for the Right Job
+LangGraph expresses the bounded investigation sequence. Chat uses a LangGraph prebuilt ReAct agent today; migrating to LangChain `create_agent` is separate compatibility work. LangChain agents themselves use LangGraph, so these are different interfaces for orchestration rather than mutually exclusive runtimes. Neither interface grants infrastructure authority.
 
-LangGraph is a low-level, stateful orchestration framework. Running a full graph for every simple query introduces unnecessary overhead and latency. 
+The current graph performs collection, sufficiency checks, causal analysis, advisory risk scoring, and a final `needs_review` result with no remediation proposal. It uses `MemorySaver`, not PostgreSQL checkpointing, and does not implement an approval interrupt, streaming, a durable queue, or recovery verification. PostgreSQL checkpoint dependencies alone do not provide persistence.
 
-Therefore, FixProof splits AI responsibilities strictly between **Structured Macro-Workflows** (LangGraph + Jev) and **Dynamic Generative Tasks** (LangChain `create_agent` + Nemotron):
+## Fresh investigation and chat contracts
 
-| Need | Framework | Why? |
-|---|---|---|
-| **Multi-step Incident Lifecycle & Human Pause** | **LangGraph** | Requires durable execution, state checkpointing in PostgreSQL, and pausing for human approval (`interrupt()`). |
-| **Calibrated Routing & Risk Scoring** | **Jev (TypeSafe AI)** | Evaluates typed questions (`Choice`, `Score`, `Noul`) in milliseconds. Zero text generation, zero parsing, zero LLM latency. |
-| **Interactive ChatOps & Smart Tool Selection** | **LangChain `create_agent`** | Fluid, conversational ReAct loop. Decides dynamically which MCP tools to call based on operator questions, with conversation memory. |
-| **Deep Causal Synthesis & Citations** | **NVIDIA Nemotron 70B** | Generates plain-English root cause explanations and correlates multi-source timestamps. |
+`POST /investigate` always starts a new run. It returns `investigation_id` (a server-generated UUID) alongside the incident ID. That UUID is the graph thread ID. Evidence and errors may accumulate across collection passes **within that run**, never across new investigations of the same incident. The collector retries missing sources once.
 
----
+`POST /chat` requires `incident_id`, `investigation_id`, `message`, and optional `session_id`. The service checks the run belongs to the incident and returns 404 if missing or mismatched. Conversation history is separated by incident, run, and session. These checks prevent accidental cross-run mixing; they are not authenticated user authorization. Only API-authenticated callers may be connected in the future.
 
-## 2. System Topology & Request Routing
+The MCP client tries SSE then private REST. It requires live evidence, the expected source, an aware observation timestamp no more than 120 seconds old or five seconds in the future, and a matching envelope hash. The hash binds ID, source, fact, raw payload, observation time, mode and trust marker. It is an integrity check, not a signature or proof of causality. Source measurement times and windows must also be checked; a recent collection timestamp alone is insufficient.
 
-```mermaid
-flowchart TB
-    Operator["Operator (Browser UI)"]
+Chat's dynamic tools currently fetch observations that are not persisted and are not added to the final citation-validation set. Existing run evidence is not fully injected into the model context. Treat ChatOps as unfinished; before operator integration, persist each read through the API evidence bridge, pass the selected bounded evidence into the model, and reject unsupported factual claims. Run selection fixes do not complete chat grounding.
 
-    subgraph API["apps/api — Control Plane (:8000)"]
-        IncidentRouter["Incident Lifecycle Routes"]
-        ChatRouter["ChatOps Route"]
-    end
+## Reasoning and deterministic policy
 
-    subgraph AI["apps/ai — Agent Service (:8001)"]
-        direction TB
+Nebius reasoning receives bounded fact text and evidence references. Live credentials/model failure never falls back to synthetic reasoning; explicit synthetic mode is for development only. The current parser checks citation membership but turns free text into one hypothesis with fixed confidence. It is not the final diagnosis schema and cannot produce an approvable proposal.
 
-        subgraph PathA["Structured Workflow Path (POST /investigate)"]
-            LangGraphWF["LangGraph State Machine\n(Checkpointed in PostgreSQL)"]
-            JevRouter{"Jev Decision Layer\n(System-1 Fast Routing)"}
-            NemotronSynth["Nemotron 70B Synthesis\n(Cites Evidence IDs)"]
-            HITLGate["Human Approval Gate: interrupt()"]
-        end
+Before live proposal integration, require structured hypotheses with supporting/contradicting evidence IDs, gaps, uncertainty, and an allowed advisory action. Reject unknown citations, malformed schemas, unsupported actions, and injected instructions. Remove hardcoded confidence. The API supplies the exact target and trusted desired template; the model never supplies Kubernetes YAML or a new baseline.
 
-        subgraph PathB["Dynamic Generative Path (POST /chat)"]
-            LangChainAgent["LangChain create_agent (ReAct Loop)\n• Conversational Memory\n• Smart Tool Selection\n• Fast Streaming Answers"]
-        end
-    end
+Jev can advise sufficiency and risk; when absent/unavailable a local source-presence rule runs. This rule checks source availability, not proof of an active fault or causal sufficiency. Active-fault thresholds, evidence freshness, target validity, operator approval, and execution preconditions remain deterministic API/MCP policy.
 
-    subgraph MCP["apps/mcp — Custom MCP Tool Server (:8002)"]
-        MCPTools["MCP Tools: query_metrics, get_deployment_status, get_pod_logs, check_service_health"]
-    end
+## Durable integration design
 
-    subgraph DB["PostgreSQL Database"]
-        PGCheckpoints[("LangGraph Checkpoints\n(checkpoints, blobs)")]
-    end
+Use an API-owned investigation/job UUID and immutable retained source records. Map transport IDs to canonical API evidence UUIDs before asking the model to cite the retained bundle. Persist provider/model/request metadata with validated findings. Do not hold an incident row lock while waiting for remote inference.
 
-    Operator -->|Trigger Investigation| IncidentRouter
-    IncidentRouter -->|POST /investigate| LangGraphWF
-    LangGraphWF <--> JevRouter
-    LangGraphWF <--> NemotronSynth
-    LangGraphWF <--> MCPTools
-    LangGraphWF <--> PGCheckpoints
-    LangGraphWF --> HITLGate
+A future PostgreSQL checkpointer tracks orchestration progress only. Domain state and approval remain in the API transaction. A transactional job/outbox and idempotent result ingestion must bridge checkpoints and domain commits: retrying a completed result must not create another recommendation, and a checkpoint claiming completion must not substitute for a committed API result. Serialize or reject simultaneous invocations of one run.
 
-    Operator -->|Interactive Questions| ChatRouter
-    ChatRouter -->|POST /chat| LangChainAgent
-    LangChainAgent <-->|Dynamic Tool Selection| MCPTools
-    LangChainAgent -->|Immediate Response| Operator
-```
+If a graph waits for approval, only the API can notify it after a committed approval. Execution still independently validates the current proposal version/hash, exact target/baseline, expiry, and durable actor decision. Resume cannot invoke a mutation directly. Pending unknown outcomes require reconciliation, never blind replay.
 
----
-
-## 3. Workflow 1: The Structured Lifecycle (LangGraph + Jev)
-
-### When is LangGraph Used?
-**Only for `POST /investigate` and post-fix verification.**  
-This is the formal SRE lifecycle that changes database state, binds SHA-256 hashes, and requires a durable human approval gate.
-
-### Why LangGraph + Jev Here?
-1. **Durable Pause (`interrupt()`):** The operator may take minutes or hours to review the proposal. LangGraph commits state to PostgreSQL and sleeps. When the operator clicks "Approve", the graph wakes up from Postgres.
-2. **Deterministic Branches via Jev:** We do not waste 4 seconds asking a 70B LLM "should I fetch logs?". Jev answers in milliseconds:
-   - `Jev Noul`: *"Does the current telemetry clearly confirm an active fault?"* $\to$ `True/False`.
-   - `Jev Score`: *"What is the blast radius risk of the proposed restore?"* $\to$ `LOW`, `MEDIUM`, `HIGH`.
-3. **Pydantic Citation Guard:** Programmatic verification ensuring all hypotheses cite stored `EVD-...` evidence IDs before formatting the proposal.
-
-### LangGraph Implementation Skeleton (`apps/ai/app/graph/workflow.py`)
-```python
-from langgraph.graph import StateGraph, END
-from langgraph.types import interrupt
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
-class IncidentState(TypedDict):
-    incident_id: str
-    target_id: str
-    symptom: str
-    evidence_items: list[dict]
-    is_sufficient: bool
-    hypotheses: list[dict]
-    risk_level: str
-    recommendation: dict
-    status: str
-
-# 1. Gather Telemetry Node (calls MCP)
-async def gather_telemetry_node(state: IncidentState):
-    # Calls MCP query_metrics, get_deployment_status, check_service_health
-    return state
-
-# 2. Jev Sufficiency Node (System 1 - Official TypeSafe Jev API: POST /v1/systemone)
-async def jev_sufficiency_node(state: IncidentState):
-    # Official Jev request: turns state + typed questions into calibrated decisions
-    eval_result = await jev.evaluate_sufficiency(evidence=state["evidence_items"])
-    state["is_sufficient"] = eval_result.is_sufficient
-    return state
-
-# 3. LangGraph Conditional Router (using Jev's output)
-def route_after_telemetry(state: IncidentState):
-    if state["is_sufficient"]:
-        return "nemotron_reasoning"
-    return "fetch_additional_logs"
-
-# 4. Nemotron Reasoning Node (System 2 - Deep Causal Synthesis)
-async def nemotron_reasoning_node(state: IncidentState):
-    # Prompts Nemotron 70B with evidence bundle; outputs structured hypotheses + citations
-    return state
-
-# 5. Jev Risk Scoring Node (System 1 - Official Jev Choice/Noul Decision)
-async def jev_risk_node(state: IncidentState):
-    risk_eval = await jev.score_remediation_risk(
-        action=state["recommendation"],
-        evidence=state["evidence_items"]
-    )
-    state["risk_level"] = risk_eval.risk_tier
-    return state
-
-# 6. Human Approval Pause (HITL Interrupt)
-def human_approval_pause(state: IncidentState):
-    decision = interrupt({
-        "proposal": state["recommendation"],
-        "risk_level": state["risk_level"]
-    })
-    state["status"] = decision.get("status", "rejected")
-    return state
-```
-
----
-
-## 4. Workflow 2: Dynamic ChatOps & Tool Selection (LangChain `create_agent`)
-
-### When is LangChain `create_agent` Used?
-**Only for `POST /chat` (Interactive Operator Q&A).**
-
-### Why LangChain `create_agent` Here?
-- The operator wants to chat with the incident assistant in the web sidebar:
-  - *"Why did you conclude FAIL_MODE was the cause?"*
-  - *"Did pod-2 experience memory pressure?"*
-  - *"Check the Prometheus 5xx graph for the last 15 minutes."*
-- **You do NOT want LangGraph for this.** You want a fast, fluid, standard ReAct agent loop.
-- LangChain's `create_agent` (or `create_react_agent`) is purpose-built for:
-  1. Inspecting the question and conversation history.
-  2. Dynamically picking the right MCP tool (`get_pod_logs` vs `query_metrics`).
-  3. Formatting the arguments and executing the tool call.
-  4. Streaming the natural language answer back to the operator in real time.
-
-### LangChain ChatOps Implementation (`apps/ai/app/chat/agent.py`)
-```python
-from langchain.agents import create_react_agent, AgentExecutor
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from app.mcp_client.tools import mcp_langchain_tools
-
-def get_chatops_agent():
-    # 1. Connect to Nebius Nemotron 70B
-    llm = ChatOpenAI(
-        base_url="https://api.tokenfactory.nebius.com/v1",
-        api_key=settings.NEBIUS_API_KEY,
-        model="nvidia/llama-3.1-nemotron-70b-instruct",
-        temperature=0.2,
-        streaming=True
-    )
-    
-    # 2. Expose read-only MCP tools to the agent
-    # Tools: [query_metrics, get_pod_logs, get_deployment_status, check_service_health]
-    tools = mcp_langchain_tools
-    
-    # 3. Conversational ReAct Prompt
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are the FixProof SRE Assistant. Help the operator understand incident telemetry. "
-                   "Use your tools to inspect live logs and metrics when asked. Never guess."),
-        MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ])
-    
-    # 4. Create standard ReAct agent
-    agent = create_react_agent(llm, tools, prompt)
-    return AgentExecutor(agent=agent, tools=tools, verbose=True)
-```
-
----
-
-## 5. Summary of Framework Boundaries
-
-| Capability | Framework | Execution Latency | State Persistence |
-|---|---|---|---|
-| **Incident Triage & Graph Routing** | **Jev** (`Choice`, `Noul`) | **~50 ms** | Stateless / In-memory evaluation |
-| **Remediation Risk Rubric** | **Jev** (`Score`) | **~60 ms** | Stateless / In-memory evaluation |
-| **Investigation Macro-Pipeline** | **LangGraph** | **~4–6 s** | **Durable PostgreSQL Checkpoint** (`AsyncPostgresSaver`) |
-| **Human Approval Interrupt** | **LangGraph** (`interrupt()`) | **Indefinite (Sleeps)** | **Durable PostgreSQL Checkpoint** |
-| **Operator Chat & Tool Execution** | **LangChain** (`create_agent`) | **~1–2 s (Streaming)** | In-memory session window / Redis |
-| **Causal Reasoning & Citations** | **Nemotron 70B** (Nebius) | **~3–5 s** | Serialized into Proposal JSON |
-| **Telemetry & Actions** | **Custom MCP Server** | **~10–50 ms** | Standardized Tool Protocol |
-
----
-
-## 6. Directory Structure for `apps/ai`
-
-```text
-apps/ai/
-├── Dockerfile
-├── pyproject.toml
-├── app/
-│   ├── main.py                  # FastAPI server with /investigate and /chat routes
-│   ├── config.py                # Environment secrets (NEBIUS_API_KEY, JEV_API_KEY, DB_URL)
-│   │
-│   ├── graph/                   # LANGGRAPH (Structured Lifecycle Workflow)
-│   │   ├── state.py             # InvestigationState schema
-│   │   ├── nodes.py             # Telemetry, Nemotron reasoning, Citation guard
-│   │   ├── routing.py           # Jev conditional branching logic
-│   │   └── workflow.py          # StateGraph definition with PostgreSQL checkpointer
-│   │
-│   ├── chat/                    # LANGCHAIN (Interactive ChatOps & Dynamic Tools)
-│   │   ├── agent.py             # create_react_agent with conversation memory
-│   │   └── prompts.py           # SRE assistant prompt templates
-│   │
-│   ├── decisions/               # JEV (System-1 Decision Engine)
-│   │   └── jev_client.py        # Typed wrappers for Noul, Choice, and Score
-│   │
-│   └── mcp_client/              # TOOL CLIENT
-│       ├── client.py            # HTTP/SSE client connecting to apps/mcp
-│       └── tools.py             # LangChain tool wrappers for MCP endpoints
-│
-└── tests/
-    ├── test_graph_lifecycle.py  # Tests LangGraph pipeline and interrupt()
-    └── test_chat_agent.py       # Tests LangChain agent tool selection
-```
+Add explicit model/tool time budgets, concurrency limits, redaction, service authentication and checkpoint retention before exposing the service beyond the local scaffold. Test persistence/restart behavior independently of model fixtures. Live model availability and output shape require a credential-gated smoke test; they are not established by unit tests.

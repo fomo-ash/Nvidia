@@ -42,4 +42,19 @@ These do not prove real workload recovery, external AI quality, AWS cost ingesti
 
 ## Next developer loop
 
-Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. The [kind fixture runbook](KIND_FIXTURE.md) has the Phase 0/1 commands, acceptance thresholds, baseline behavior, Groq configuration, and current verification limits. After its exit gate passes, extend the domain records for manual intake and real MCP evidence; keep synthetic rows visibly distinct. Groq is the temporary live model provider; Nebius can be selected later with its own key. Do not commit credentials. The final local loop is fault -> report -> evidence -> cited proposal -> approval -> one scoped action -> measured verification.
+Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. The [kind fixture runbook](../infra/kind/README.md) and [acceptance handoff](KIND_FIXTURE_HANDOFF.md) record the completed local foundation and two-cycle workload checks. This Windows workspace still needs a full rebuild after Docker registry DNS is restored. The next product integration is authenticated incident intake and real MCP evidence. For temporary live model calls, set `LLM_PROVIDER=groq` and `GROQ_API_KEY` in ignored `.env`; switch to `LLM_PROVIDER=nebius` with its own key later. Do not commit credentials. The final loop is fault -> report -> evidence -> cited proposal -> approval -> one scoped action -> measured verification.
+
+## AI and MCP development
+
+Each service uses its own Python environment because all three Python applications currently use the top-level package name `app`. Do not install API, AI and MCP together in one environment. AI/MCP dependencies are resolved in per-service `uv.lock` files; CI and Docker use uv 0.9.17 with frozen installs.
+
+```sh
+uv sync --project apps/ai --frozen --extra dev
+uv sync --project apps/mcp --frozen --extra dev
+(cd apps/ai && uv run --frozen --extra dev pytest -q)
+(cd apps/mcp && uv run --frozen --extra dev pytest -q)
+```
+
+Use the same service directories for `ruff check app tests` and `ruff format --check app tests`. Intentional dependency updates regenerate the relevant lockfile and rerun that service's checks. Runtime Docker images install the frozen runtime dependencies; development targets add the locked test dependencies.
+
+These are internal scaffold endpoints, not the API's generated public contract. `POST /investigate` now returns a fresh `investigation_id`; `POST /chat` requires that ID together with its incident ID. Old clients that send only an incident must be updated. Evidence envelopes now bind IDs and observation timestamps into their hashes, so AI and MCP must be deployed together. Older cached envelopes are rejected. See the [architecture contract](agentic_architecture/README.md) for integration gates and current limits.

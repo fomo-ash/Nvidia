@@ -112,7 +112,9 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
 
     elif name == "check_service_health":
         url = str(args.get("target_url", ""))
-        evidence = await _check_service_health(target_url=url) if url else await _check_service_health()
+        evidence = (
+            await _check_service_health(target_url=url) if url else await _check_service_health()
+        )
         return [TextContent(type="text", text=evidence.model_dump_json())]
 
     else:

@@ -6,7 +6,7 @@ Deliver one reproducible local kind incident. A deliberate configuration change 
 
 The current repository already has a hardened local scaffold and Phase 2 lifecycle APIs: normalized synthetic investigations/evidence, exact-hash approvals, idempotent execution/verification records, audit guards, generated API types, and persisted synthetic cost reports. Its operations adapter is unavailable by design, so it performs no infrastructure mutation. It is not the release workflow. [Current assessment](docs/INITIAL_ASSESSMENT.md) identifies the remaining gaps.
 
-Groq is the temporary selectable live model provider during local development. The final Nebius/Nemotron gate remains open. The [kind fixture runbook](docs/KIND_FIXTURE.md) records the implemented Phase 1 files and the Docker registry DNS blocker that currently prevents its full acceptance run.
+Groq is the temporary selectable live model provider during local development. The final Nebius/Nemotron gate remains open. The [kind fixture runbook](infra/kind/README.md) and [acceptance handoff](docs/KIND_FIXTURE_HANDOFF.md) record the Phase 0/1 checks completed on the fixture branch. This Windows workspace still needs its own full rebuild after Docker registry DNS is restored.
 
 ## Execution order
 
@@ -26,7 +26,7 @@ The [implementation plan](docs/IMPLEMENTATION_PLAN.md) gives the tasks, dependen
 
 ## Start here
 
-The foundation fixes and Phase 2 domain work are already on `main`. Recheck the full five-service Compose smoke path, including Grafana, then build the kind sample fixture in Phase 1. Use the existing domain APIs and migrations as the base for later intake, evidence, approval, execution, and verification work.
+The foundation fixes and historical Phase 2 domain work are already implemented. Full-stack/Grafana smoke and container regression checks passed on the fixture branch before it merged into `main`. The [observable kind fixture](infra/kind/README.md) passed two live healthy/fault/reset cycles on the recorded host; see the [handoff](docs/KIND_FIXTURE_HANDOFF.md). Authenticated incident intake is the next product integration step.
 
 ## Supporting contracts
 

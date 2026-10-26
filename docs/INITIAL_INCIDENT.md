@@ -1,6 +1,6 @@
 # Initial incident: unhealthy sample application
 
-**Status: sample fixture implemented, integration unverified.** The sample application, kind manifests, fault/reset driver, and Prometheus scrape configuration are in the repository. Docker registry DNS blocked the full kind cycle on 2026-10-26, so the Phase 1 exit gate has not passed. Live MCP evidence collection and the rest of the incident workflow remain future work. See [the fixture runbook](KIND_FIXTURE.md).
+**Status: fixture implemented; product integration remains planned.** The sample application, guarded developer fault/reset scripts and kind manifests now live in `apps/sample`, `scripts/kind_fixture.py` and `infra/kind`. See the [fixture runbook](../infra/kind/README.md) for setup and verification. This is not an agent execution path or an API-persisted live evidence collector.
 
 ## Setup and trigger
 

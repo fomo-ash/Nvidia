@@ -1,0 +1,185 @@
+{
+  "apiVersion": "v1",
+  "kind": "List",
+  "items": [
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "sample-api",
+        "namespace": "fixproof-demo"
+      },
+      "spec": {
+        "replicas": 1,
+        "revisionHistoryLimit": 5,
+        "selector": {
+          "matchLabels": {
+            "app": "sample-api"
+          }
+        },
+        "strategy": {
+          "type": "RollingUpdate",
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 0
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "sample-api"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 10001,
+              "runAsGroup": 10001,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "containers": [
+              {
+                "name": "sample-api",
+                "image": "fixproof-sample:local",
+                "imagePullPolicy": "Never",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "FAIL_MODE",
+                    "value": "off"
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "32Mi"
+                  },
+                  "limits": {
+                    "cpu": "250m",
+                    "memory": "128Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "sample-traffic",
+        "namespace": "fixproof-demo"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "sample-traffic"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "sample-traffic"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 10001,
+              "runAsGroup": 10001,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "containers": [
+              {
+                "name": "traffic",
+                "image": "fixproof-sample:local",
+                "imagePullPolicy": "Never",
+                "command": [
+                  "python",
+                  "traffic.py"
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "25m",
+                    "memory": "24Mi"
+                  },
+                  "limits": {
+                    "cpu": "100m",
+                    "memory": "64Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "sample-api",
+        "namespace": "fixproof-demo"
+      },
+      "spec": {
+        "type": "NodePort",
+        "selector": {
+          "app": "sample-api"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8080,
+            "targetPort": 8080,
+            "nodePort": 30080
+          }
+        ]
+      }
+    }
+  ]
+}

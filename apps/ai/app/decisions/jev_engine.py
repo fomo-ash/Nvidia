@@ -13,6 +13,7 @@ from app.config import settings
 from app.schemas.decisions import RiskEvaluation, SufficiencyEvaluation
 from app.schemas.state import EvidenceReference, RemediationCandidate
 
+
 class JevDecisionEngine:
     """Official TypeSafe Jev System-1 Decision Engine for microsecond routing and risk scoring."""
 
@@ -170,10 +171,12 @@ class JevDecisionEngine:
                     if res.status_code == 200:
                         answers = res.json().get("answers", {})
                         tier_choice = answers.get("risk_tier", {}).get("choice", "medium")
-                        approval_noul = float(answers.get("requires_human_approval", {}).get("noul", 0.9))
+                        approval_noul = float(
+                            answers.get("requires_human_approval", {}).get("noul", 0.9)
+                        )
 
                         return RiskEvaluation(
-            risk_tier=tier_choice,
+                            risk_tier=tier_choice,
                             blast_radius="single_pod (fixproof-demo/sample-api)",
                             confidence=0.92,
                             requires_human_approval=True,

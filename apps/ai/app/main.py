@@ -1,7 +1,8 @@
 """FastAPI application entrypoint for FixProof AI Agent Service."""
 
-from fastapi import FastAPI
+from uuid import uuid4
 
+from fastapi import FastAPI, HTTPException
 from app.chat.agent import execute_chat
 from app.graph.workflow import investigation_workflow
 from app.schemas.api import (
@@ -26,9 +27,11 @@ async def health_check() -> dict[str, str]:
 
 @app.post("/investigate", response_model=InvestigationResponse, tags=["Investigation"])
 async def investigate_incident(body: InvestigationRequest) -> InvestigationResponse:
-    """Trigger or resume a structured multi-step SRE incident investigation."""
+    """Start a fresh advisory investigation; resumption is not exposed."""
+    investigation_id = uuid4()
     initial_state = {
         "incident_id": body.incident_id,
+        "investigation_id": str(investigation_id),
         "anomaly_id": body.anomaly_id,
         "namespace": body.namespace,
         "deployment_name": body.deployment_name,
@@ -48,7 +51,7 @@ async def investigate_incident(body: InvestigationRequest) -> InvestigationRespo
         "errors": [],
     }
 
-    config = {"configurable": {"thread_id": body.incident_id}}
+    config = {"configurable": {"thread_id": str(investigation_id)}}
     result_state = await investigation_workflow.ainvoke(initial_state, config=config)
 
     evidence_items = result_state.get("evidence", [])
@@ -56,6 +59,7 @@ async def investigate_incident(body: InvestigationRequest) -> InvestigationRespo
     proposal = ProposalSummary(**proposal_dict) if proposal_dict else None
 
     return InvestigationResponse(
+        investigation_id=investigation_id,
         incident_id=body.incident_id,
         status=result_state.get("investigation_status", "completed"),
         evidence_count=len(evidence_items),
@@ -71,18 +75,22 @@ async def investigate_incident(body: InvestigationRequest) -> InvestigationRespo
 @app.post("/chat", response_model=ChatResponse, tags=["ChatOps"])
 async def chat_with_incident(body: ChatRequest) -> ChatResponse:
     """Interactive conversational ChatOps endpoint with evidence grounding."""
-    config = {"configurable": {"thread_id": body.incident_id}}
-    state = investigation_workflow.get_state(config)
-    evidence = state.values.get("evidence", []) if state and hasattr(state, "values") and state.values else []
+    config = {"configurable": {"thread_id": str(body.investigation_id)}}
+    state = await investigation_workflow.aget_state(config)
+    values = state.values if state else {}
+    if not values or values.get("incident_id") != body.incident_id:
+        raise HTTPException(404, "Investigation not found for this incident")
+    evidence = values.get("evidence", [])
 
     response_text, citations = await execute_chat(
-        session_id=body.session_id,
+        session_id=f"{body.investigation_id}:{body.session_id}",
         incident_id=body.incident_id,
         user_message=body.message,
         available_evidence=evidence,
     )
 
     return ChatResponse(
+        investigation_id=body.investigation_id,
         incident_id=body.incident_id,
         response=response_text,
         citations=citations,

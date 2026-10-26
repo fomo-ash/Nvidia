@@ -29,3 +29,7 @@ These are release steps to implement, not commands that exist today. The [initia
 6. Repeat from reset. Reject a proposal and show denied execution. Also demonstrate a patch that does not recover the app, or missing metrics, producing `verification_failed` or `inconclusive` rather than success.
 
 The acceptance record includes exact commands, evidence IDs, provider/model, proposal hash, approval actor/time, execution ID, and verification readings. Redact secrets. Existing synthetic cost and operations demonstrations remain separate from this real recovery run.
+
+## Observable kind fixture
+
+The developer-operated sample now has a separate [fixture runbook](../infra/kind/README.md). Start with `python3.12 scripts/kind_fixture.py up`, enable `compose.kind.yaml`, then run `python3.12 scripts/kind_fixture.py verify --cycles 2`. This exercises real traffic, a Kubernetes revision fault and fresh Prometheus measurements. It does not yet exercise AI diagnosis, authenticated approval or API/MCP remediation. Keep those acceptance claims separate.
