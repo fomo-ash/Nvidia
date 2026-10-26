@@ -12,8 +12,8 @@ Build one vertical path through real components. Each phase ends with a command 
 
 | Phase | Depends on | Deliverable demonstrated at exit | Status |
 |---|---|---|---|
-| 0. Confirm foundation | Current `main` | Full five-service Compose and Grafana smoke path verified; existing checks remain green | Partial: core stack and checks implemented |
-| 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Not started |
+| 0. Confirm foundation | Current `main` | Full Compose and Grafana smoke path verified; existing checks remain green | Partial: Docker registry DNS blocked full rebuild on 2026-10-26 |
+| 1. Observable kind fault | 0 | Healthy -> deliberate config fault -> healthy reset, with sample metrics in Prometheus | Fixture implemented; kind and Prometheus exit gate unverified due Docker registry DNS |
 | 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Not started |
 | 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Not started |
 | 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Not started |

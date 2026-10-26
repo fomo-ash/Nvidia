@@ -1,6 +1,6 @@
 # Initial incident: unhealthy sample application
 
-**Status: planned MVP scenario.** No sample application, fault injector, kind manifests, or live evidence collector exists in the repository yet. This scenario defines the first end-to-end implementation target.
+**Status: sample fixture implemented, integration unverified.** The sample application, kind manifests, fault/reset driver, and Prometheus scrape configuration are in the repository. Docker registry DNS blocked the full kind cycle on 2026-10-26, so the Phase 1 exit gate has not passed. Live MCP evidence collection and the rest of the incident workflow remain future work. See [the fixture runbook](KIND_FIXTURE.md).
 
 ## Setup and trigger
 

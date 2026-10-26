@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fixproof-demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-api
+  namespace: fixproof-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: sample-api }
+  template:
+    metadata:
+      labels: { app: sample-api }
+    spec:
+      containers:
+        - name: sample-api
+          image: fixproof/sample-api:local
+          imagePullPolicy: Never
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-api
+  namespace: fixproof-demo
+spec:
+  type: NodePort
+  selector: { app: sample-api }
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-traffic
+  namespace: fixproof-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: sample-traffic }
+  template:
+    metadata:
+      labels: { app: sample-traffic }
+    spec:
+      containers:
+        - name: traffic
+          image: fixproof/sample-api:local
+          imagePullPolicy: Never
+          command: ["python", "traffic.py"]

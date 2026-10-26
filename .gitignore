@@ -18,3 +18,4 @@ test-results/
 *.tsbuildinfo
 /project_context
 .pr_create_tmp.py
+.local/

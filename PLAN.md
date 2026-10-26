@@ -6,6 +6,8 @@ Deliver one reproducible local kind incident. A deliberate configuration change 
 
 The current repository already has a hardened local scaffold and Phase 2 lifecycle APIs: normalized synthetic investigations/evidence, exact-hash approvals, idempotent execution/verification records, audit guards, generated API types, and persisted synthetic cost reports. Its operations adapter is unavailable by design, so it performs no infrastructure mutation. It is not the release workflow. [Current assessment](docs/INITIAL_ASSESSMENT.md) identifies the remaining gaps.
 
+Groq is the temporary selectable live model provider during local development. The final Nebius/Nemotron gate remains open. The [kind fixture runbook](docs/KIND_FIXTURE.md) records the implemented Phase 1 files and the Docker registry DNS blocker that currently prevents its full acceptance run.
+
 ## Execution order
 
 | Phase | Deliverable that must work before proceeding |
