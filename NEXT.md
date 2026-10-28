@@ -15,7 +15,9 @@ Updated 2026-10-28. This is the actionable continuation of [the MVP implementati
 - [ ] Run `python scripts/kind_fixture.py up`, then `docker compose -f compose.yaml -f compose.kind.yaml up --build --wait --wait-timeout 180`. Confirm API readiness, browser access, Grafana, Prometheus sample scraping, and MCP health. Run `python scripts/smoke.py` where its synthetic-mode assumptions apply; record which mode was tested.
 - [ ] Fault the fixture, sign in through `/incidents`, report the displayed exact UID, restart the API, and confirm the incident, trigger, and queued request persist. Repeat the same idempotency key and a distinct key; check replay versus reuse, audit timeline, and `unassessed` wording. Reset the fixture afterward.
 - [ ] Run `docker compose -f compose.checks.yaml run --build --rm api-postgres-checks` once Docker Desktop can start `db-checks`. Verify migration up/down, concurrent same-target reports, trigger immutability, idempotency, and legacy row preservation on PostgreSQL. Update the intake handoff with actual results.
-- [ ] Finish Phase 2 UI polish: show a clear signed-in/session-expired state, target refresh when UID drifts, trigger history and queued job status on incident detail, and explicit loading/error/empty/retry states. Keep “reported” and “unassessed” distinct from detected or confirmed. Add component and browser tests for those states.
+- [x] Phase 2 UI polish: the incident report now shows signed-in/session-expired guidance, refreshes a drifted target UID, and displays trigger history plus queued investigation status with loading, error, empty, and retry states. “Reported” and “unassessed” remain distinct from detected or confirmed. Component coverage is in the web suite.
+- [ ] Add a browser-level Phase 2 intake test once the Compose/kind acceptance environment is available; cover sign-in, target refresh, report submission, queued status, and expired-session recovery.
+- [ ] Give the incident-target, trigger-history, and investigation-request endpoints declared response models, regenerate the web schema, and replace the UI’s local response types with generated contract types.
 
 ## Phase 3: real MCP evidence
 

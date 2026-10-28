@@ -70,6 +70,7 @@ describe("operations console", () => {
     expect(await screen.findByText(/UID: uid-1/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Report incident" }));
     expect(await screen.findByText(/Awaiting evidence collection/)).toBeTruthy();
+    expect(screen.getByText(/reporting is not detection or confirmation/)).toBeTruthy();
     expect(fetch.mock.calls[3][1]).toMatchObject({ credentials: "include", headers: { "X-CSRF-Token": "csrf-test", "Idempotency-Key": "test-key" } });
   });
 
