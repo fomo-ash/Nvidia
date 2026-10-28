@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./services/api";
+import IncidentReport from "./IncidentReport";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -39,6 +40,7 @@ function Incidents() {
   });
   return <>
     <h1>Incidents</h1>
+    <IncidentReport />
     {query.isPending ? <p role="status">Loading incidents...</p> :
       query.isError ? <div role="alert"><p>Unable to load incidents.</p><button onClick={() => void query.refetch()}>Retry</button></div> :
         <section className="panel">{query.data.length ? query.data.map(item =>

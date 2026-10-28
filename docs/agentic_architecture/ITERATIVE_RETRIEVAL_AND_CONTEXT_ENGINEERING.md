@@ -1,7 +1,9 @@
 # FixProof: Iterative Retrieval & Context Engineering Strategy
 
-**Document Owner**: Architecture & Engineering Team  
-**Purpose**: Implementation blueprint to upgrade FixProof's investigation pipeline from a static one-shot retrieval model to an iterative, hypothesis-driven retrieval architecture based on LangChain Context Engineering principles.  
+**Document Owner**: Architecture & Engineering Team
+
+**Purpose**: Implementation blueprint to upgrade FixProof's investigation pipeline from a static one-shot retrieval model to an iterative, hypothesis-driven retrieval architecture based on LangChain Context Engineering principles.
+
 **Reference Reading**: [LangChain Context Engineering for Agents](https://www.langchain.com/blog/context-engineering-for-agents)
 
 ---
@@ -46,7 +48,7 @@ sequenceDiagram
     Note over Graph: Pass 1: Broad Triage
     Graph->>MCP: Query broad metrics + Pod status + recent log error count
     MCP-->>Graph: High 5xx rate, Pod crash detected, 42 error lines found
-    
+
     Graph->>S1: Evaluate initial sufficiency
     S1-->>Graph: Sufficient for initial hypothesis (confidence 0.85)
 
@@ -59,7 +61,7 @@ sequenceDiagram
 
     Graph->>Nemotron: Update and ground hypothesis with targeted evidence
     Nemotron-->>Graph: Confirmed diagnosis: "DB connection refused [EVD-042]"
-    
+
     Graph->>S1: Score remediation risk & reversibility
     S1-->>Graph: Risk verdict & approval gate
 ```
@@ -102,17 +104,17 @@ class InvestigationState(TypedDict):
     run_id: str
     namespace: str
     deployment_name: str
-    
+
     # Context Offloading: Only store pointers & compact summaries in graph state
     evidence_refs: list[str]          # ['EVD-001', 'EVD-002']
     evidence: list[EvidenceReference] # Compact metadata + bounded facts
-    
+
     # Iteration & Budget Management (LangChain Context Engineering)
     iteration_count: int              # Current query pass (e.g. 1, 2)
     max_budget: int                   # Max allowed passes (hardcoded to 2)
     targeted_query_needed: bool       # Does Nemotron request follow-up evidence?
     targeted_query_spec: dict[str, Any] | None # Parameters for follow-up query
-    
+
     # Reasoning state
     hypotheses: list[Hypothesis]
     root_cause_summary: str | None

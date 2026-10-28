@@ -23,11 +23,41 @@ def now():
 
 class Incident(Base):
     __tablename__ = "incidents"
+    __table_args__ = (UniqueConstraint("fingerprint", name="uq_incident_open_fingerprint"),)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(200))
     status: Mapped[str] = mapped_column(String(32), default="open", index=True)
     severity: Mapped[str] = mapped_column(String(16))
     summary: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    mode: Mapped[str] = mapped_column(String(20), default="legacy_demo")
+    target_id: Mapped[str | None] = mapped_column(String(200))
+    target_uid: Mapped[str | None] = mapped_column(String(80))
+    symptom: Mapped[str | None] = mapped_column(String(80))
+    fingerprint: Mapped[str | None] = mapped_column(String(64))
+    lifecycle: Mapped[str | None] = mapped_column(String(32))
+    assessment: Mapped[str | None] = mapped_column(String(32))
+    last_reported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class IncidentTrigger(Base):
+    __tablename__ = "incident_triggers"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incidents.id"), index=True)
+    source: Mapped[str] = mapped_column(String(20))
+    reporter: Mapped[str] = mapped_column(String(120))
+    summary: Mapped[str] = mapped_column(String(800))
+    note: Mapped[str | None] = mapped_column(String(2000))
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    reported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class InvestigationRequest(Base):
+    __tablename__ = "investigation_requests"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incidents.id"), index=True)
+    trigger_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incident_triggers.id"), unique=True)
+    status: Mapped[str] = mapped_column(String(20), default="queued")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 

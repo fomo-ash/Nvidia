@@ -1,5 +1,7 @@
 # API contracts
 
+The authenticated manual intake contract is recorded in [Phase 2 intake handoff](PHASE_2_INTAKE_HANDOFF.md). It extends `POST /api/v1/incidents` with the registered sample target, separate immutable trigger and queued investigation request. The legacy synthetic payload remains available in local demo mode. A live incident rejects the synthetic `investigate` route while real collection is pending.
+
 Application routes use /api/v1, UUID identifiers, JSON, and OpenAPI at /openapi.json. The source snapshot is apps/api/openapi.json; frontend definitions are generated into apps/web/src/services/schema.d.ts.
 
 ## Identity and errors

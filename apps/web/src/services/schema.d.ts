@@ -187,6 +187,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incident-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Incident Targets */
+        get: operations["incident_targets_api_v1_incident_targets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents": {
         parameters: {
             query?: never;
@@ -256,6 +273,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/{incident_id}/investigation-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Incident Requests */
+        get: operations["incident_requests_api_v1_incidents__incident_id__investigation_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/{incident_id}/investigations": {
         parameters: {
             query?: never;
@@ -299,6 +333,23 @@ export interface paths {
         };
         /** Timeline */
         get: operations["timeline_api_v1_incidents__incident_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{incident_id}/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Incident Triggers */
+        get: operations["incident_triggers_api_v1_incidents__incident_id__triggers_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -454,6 +505,23 @@ export interface paths {
         put?: never;
         /** Reject */
         post: operations["reject_api_v1_recommendations__recommendation_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_v1_session_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -892,6 +960,8 @@ export interface components {
         };
         /** IncidentOut */
         IncidentOut: {
+            /** Assessment */
+            assessment?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -902,12 +972,27 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Last Reported At */
+            last_reported_at?: string | null;
+            /** Lifecycle */
+            lifecycle?: string | null;
+            /**
+             * Mode
+             * @default legacy_demo
+             */
+            mode: string;
             /** Severity */
             severity: string;
             /** Status */
             status: string;
             /** Summary */
             summary: string;
+            /** Symptom */
+            symptom?: string | null;
+            /** Target Id */
+            target_id?: string | null;
+            /** Target Uid */
+            target_uid?: string | null;
             /** Title */
             title: string;
         };
@@ -961,6 +1046,77 @@ export interface components {
             status: "completed" | "failed";
             /** Summary */
             summary: string;
+        };
+        /** LoginRequest */
+        LoginRequest: {
+            /** Secret */
+            secret: string;
+        };
+        /** ManualIncidentCreate */
+        ManualIncidentCreate: {
+            /** Note */
+            note?: string | null;
+            /** Summary */
+            summary: string;
+            /**
+             * Symptom
+             * @constant
+             */
+            symptom: "http_5xx_spike";
+            /**
+             * Target Id
+             * @constant
+             */
+            target_id: "local-kind/fixproof-demo/sample-api";
+            /** Target Uid */
+            target_uid: string;
+        };
+        /** ManualIncidentOut */
+        ManualIncidentOut: {
+            /**
+             * Assessment
+             * @default unassessed
+             * @constant
+             */
+            assessment: "unassessed";
+            /**
+             * Incident Id
+             * Format: uuid
+             */
+            incident_id: string;
+            /**
+             * Investigation Request Id
+             * Format: uuid
+             */
+            investigation_request_id: string;
+            /**
+             * Lifecycle
+             * @default open
+             * @constant
+             */
+            lifecycle: "open";
+            /**
+             * Reported At
+             * Format: date-time
+             */
+            reported_at: string;
+            /** Reused */
+            reused: boolean;
+            /** Target Id */
+            target_id: string;
+            /** Target Uid */
+            target_uid: string;
+            /**
+             * Trigger Id
+             * Format: uuid
+             */
+            trigger_id: string;
+            /**
+             * Trigger Source
+             * @default manual
+             * @constant
+             */
+            trigger_source: "manual";
         };
         /** RecommendationOut */
         RecommendationOut: {
@@ -1899,6 +2055,62 @@ export interface operations {
             };
         };
     };
+    incident_targets_api_v1_incident_targets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
     incidents_api_v1_incidents_get: {
         parameters: {
             query?: {
@@ -1979,7 +2191,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["IncidentCreate"];
+                "application/json": components["schemas"]["ManualIncidentCreate"] | components["schemas"]["IncidentCreate"];
             };
         };
         responses: {
@@ -1989,7 +2201,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["IncidentOut"];
+                    "application/json": components["schemas"]["IncidentOut"] | components["schemas"]["ManualIncidentOut"];
                 };
             };
             /** @description Unauthorized */
@@ -2242,6 +2454,73 @@ export interface operations {
             };
         };
     };
+    incident_requests_api_v1_incidents__incident_id__investigation_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     incident_investigations_api_v1_incidents__incident_id__investigations_get: {
         parameters: {
             query?: {
@@ -2406,6 +2685,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    incident_triggers_api_v1_incidents__incident_id__triggers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Unauthorized */
@@ -3067,6 +3413,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_v1_session_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

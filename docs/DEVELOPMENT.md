@@ -38,11 +38,11 @@ SQLite checks API behavior, source arithmetic/persistence, migration/backfill co
 
 Root scripts use ruff.toml; the standalone API build uses the aligned settings in apps/api/pyproject.toml. Check both with `ruff check apps/api scripts` and `ruff format --check apps/api scripts` from the repository root. Build from a feature branch and use a pull request into main. Phase 2 was marked DONE after the project owner confirmed CI and review; see PHASE_2_HANDOFF.md for the recorded local acceptance and its limits.
 
-These do not prove real workload recovery, external AI quality, AWS cost ingestion, authentication, or isolated remediation. Those belong to the next implementation phases.
+These do not prove real workload recovery, external AI quality, AWS cost ingestion, or isolated remediation. The local operator session and manual intake are described in [Phase 2 intake handoff](PHASE_2_INTAKE_HANDOFF.md); production identity remains separate work.
 
 ## Next developer loop
 
-Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. The [kind fixture runbook](../infra/kind/README.md) and [acceptance handoff](KIND_FIXTURE_HANDOFF.md) record the completed local foundation and two-cycle workload checks. This Windows workspace still needs a full rebuild after Docker registry DNS is restored. The next product integration is authenticated incident intake and real MCP evidence. For temporary live model calls, set `LLM_PROVIDER=groq` and `GROQ_API_KEY` in ignored `.env`; switch to `LLM_PROVIDER=nebius` with its own key later. Do not commit credentials. The final loop is fault -> report -> evidence -> cited proposal -> approval -> one scoped action -> measured verification.
+Use the [implementation plan](IMPLEMENTATION_PLAN.md) in order. The [kind fixture runbook](../infra/kind/README.md) and [acceptance handoff](KIND_FIXTURE_HANDOFF.md) record the completed local foundation and two-cycle workload checks. This Windows workspace still needs a full runtime rebuild. Manual intake is implemented locally; see [its setup and remaining gates](PHASE_2_INTAKE_HANDOFF.md). The next product integration is the restricted MCP evidence collector that consumes queued requests. For temporary live model calls, set `LLM_PROVIDER=groq` and `GROQ_API_KEY` in ignored `.env`; switch to `LLM_PROVIDER=nebius` with its own key later. Do not commit credentials. The final loop is fault -> report -> evidence -> cited proposal -> approval -> one scoped action -> measured verification.
 
 ## AI and MCP development
 

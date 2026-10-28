@@ -784,6 +784,17 @@
       "IncidentOut": {
         "additionalProperties": false,
         "properties": {
+          "assessment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -792,6 +803,34 @@
           "id": {
             "format": "uuid",
             "title": "Id",
+            "type": "string"
+          },
+          "last_reported_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reported At"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "mode": {
+            "default": "legacy_demo",
+            "title": "Mode",
             "type": "string"
           },
           "severity": {
@@ -808,6 +847,39 @@
             "minLength": 3,
             "title": "Summary",
             "type": "string"
+          },
+          "symptom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symptom"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Uid"
           },
           "title": {
             "maxLength": 200,
@@ -922,6 +994,131 @@
           "created_at"
         ],
         "title": "InvestigationOut",
+        "type": "object"
+      },
+      "LoginRequest": {
+        "properties": {
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "LoginRequest",
+        "type": "object"
+      },
+      "ManualIncidentCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "summary": {
+            "maxLength": 800,
+            "minLength": 3,
+            "title": "Summary",
+            "type": "string"
+          },
+          "symptom": {
+            "const": "http_5xx_spike",
+            "title": "Symptom",
+            "type": "string"
+          },
+          "target_id": {
+            "const": "local-kind/fixproof-demo/sample-api",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_uid": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Target Uid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_id",
+          "target_uid",
+          "symptom",
+          "summary"
+        ],
+        "title": "ManualIncidentCreate",
+        "type": "object"
+      },
+      "ManualIncidentOut": {
+        "properties": {
+          "assessment": {
+            "const": "unassessed",
+            "default": "unassessed",
+            "title": "Assessment",
+            "type": "string"
+          },
+          "incident_id": {
+            "format": "uuid",
+            "title": "Incident Id",
+            "type": "string"
+          },
+          "investigation_request_id": {
+            "format": "uuid",
+            "title": "Investigation Request Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "const": "open",
+            "default": "open",
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "reported_at": {
+            "format": "date-time",
+            "title": "Reported At",
+            "type": "string"
+          },
+          "reused": {
+            "title": "Reused",
+            "type": "boolean"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_uid": {
+            "title": "Target Uid",
+            "type": "string"
+          },
+          "trigger_id": {
+            "format": "uuid",
+            "title": "Trigger Id",
+            "type": "string"
+          },
+          "trigger_source": {
+            "const": "manual",
+            "default": "manual",
+            "title": "Trigger Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "incident_id",
+          "trigger_id",
+          "investigation_request_id",
+          "target_id",
+          "target_uid",
+          "reported_at",
+          "reused"
+        ],
+        "title": "ManualIncidentOut",
         "type": "object"
       },
       "RecommendationOut": {
@@ -2364,6 +2561,62 @@
         "summary": "Verify"
       }
     },
+    "/api/v1/incident-targets": {
+      "get": {
+        "operationId": "incident_targets_api_v1_incident_targets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Incident Targets"
+      }
+    },
     "/api/v1/incidents": {
       "get": {
         "operationId": "incidents_api_v1_incidents_get",
@@ -2503,7 +2756,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/IncidentCreate"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ManualIncidentCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/IncidentCreate"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           },
@@ -2514,7 +2775,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IncidentOut"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/IncidentOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ManualIncidentOut"
+                    }
+                  ],
+                  "title": "Response Create Incident Api V1 Incidents Post"
                 }
               }
             },
@@ -2833,6 +3102,84 @@
           }
         },
         "summary": "Investigate"
+      }
+    },
+    "/api/v1/incidents/{incident_id}/investigation-requests": {
+      "get": {
+        "operationId": "incident_requests_api_v1_incidents__incident_id__investigation_requests_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Incident Requests"
       }
     },
     "/api/v1/incidents/{incident_id}/investigations": {
@@ -3208,6 +3555,84 @@
           }
         },
         "summary": "Timeline"
+      }
+    },
+    "/api/v1/incidents/{incident_id}/triggers": {
+      "get": {
+        "operationId": "incident_triggers_api_v1_incidents__incident_id__triggers_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Incident Triggers"
       }
     },
     "/api/v1/integrations": {
@@ -4074,6 +4499,42 @@
           }
         },
         "summary": "Reject"
+      }
+    },
+    "/api/v1/session": {
+      "post": {
+        "operationId": "login_api_v1_session_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login"
       }
     },
     "/api/v1/verifications/{verification_id}": {

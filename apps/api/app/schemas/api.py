@@ -35,7 +35,36 @@ class IncidentOut(IncidentCreate, RecordOut):
     id: UUID
     status: str
     created_at: datetime
+    mode: str = "legacy_demo"
+    target_id: str | None = None
+    target_uid: str | None = None
+    symptom: str | None = None
+    lifecycle: str | None = None
+    assessment: str | None = None
+    last_reported_at: datetime | None = None
     model_config = {"from_attributes": True}
+
+
+class ManualIncidentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    target_id: Literal["local-kind/fixproof-demo/sample-api"]
+    target_uid: str = Field(min_length=1, max_length=80)
+    symptom: Literal["http_5xx_spike"]
+    summary: str = Field(min_length=3, max_length=800)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ManualIncidentOut(RecordOut):
+    incident_id: UUID
+    trigger_id: UUID
+    investigation_request_id: UUID
+    target_id: str
+    target_uid: str
+    trigger_source: Literal["manual"] = "manual"
+    lifecycle: Literal["open"] = "open"
+    assessment: Literal["unassessed"] = "unassessed"
+    reported_at: datetime
+    reused: bool
 
 
 class RecommendationOut(RecordOut):

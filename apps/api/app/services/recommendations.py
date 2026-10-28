@@ -86,7 +86,12 @@ def investigate(
     actor: Actor | None = None,
 ) -> Recommendation:
     actor = actor or Actor("local-demo-user", "operator")
-    require_incident(db, incident_id, lock=True)
+    incident = require_incident(db, incident_id, lock=True)
+    if incident.mode == "live":
+        raise HTTPException(
+            409,
+            "Live incident evidence collection is queued; synthetic investigation is unavailable",
+        )
     if db.scalar(
         select(Execution.id)
         .join(Recommendation)

@@ -14,7 +14,7 @@ Build one vertical path through real components. Each phase ends with a command 
 |---|---|---|---|
 | 0. Confirm foundation | Current `main` | Full five-service Compose and Grafana smoke path verified; existing checks remain green | Ready for review: full-stack smoke and container checks passed; see KIND_FIXTURE_HANDOFF.md |
 | 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Ready for review: two live fault/reset cycles passed; see KIND_FIXTURE_HANDOFF.md |
-| 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Not started |
+| 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Implemented locally; PostgreSQL and live kind acceptance remain; see PHASE_2_INTAKE_HANDOFF.md |
 | 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Not started |
 | 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Not started |
 | 5. Proposal and approval | 2, 4 | Operator approves an immutable exact proposal; no infrastructure action yet | Not started |

@@ -24,9 +24,13 @@ Groq is the temporary selectable live model provider during local development. T
 
 The [implementation plan](docs/IMPLEMENTATION_PLAN.md) gives the tasks, dependencies, tests, and exit gate for every phase. Work in this order for a solo developer; parallel contributors meet at the contract checkpoints documented there. No phase is complete because a UI badge or model answer claims success.
 
+[NEXT.md](NEXT.md) tracks the remaining acceptance work, UI details, and later phases from the current feature branch.
+
 ## Start here
 
 The foundation fixes and historical Phase 2 domain work are already implemented. Full-stack/Grafana smoke and container regression checks passed on the fixture branch before it merged into `main`. The [observable kind fixture](infra/kind/README.md) passed two live healthy/fault/reset cycles on the recorded host; see the [handoff](docs/KIND_FIXTURE_HANDOFF.md). Authenticated incident intake is the next product integration step.
+
+The new manual intake implementation and its setup, contract, checks and remaining live gates are recorded in [Phase 2 intake handoff](docs/PHASE_2_INTAKE_HANDOFF.md). It queues work for the Phase 3 collector; no live evidence collection is implied.
 
 ## Supporting contracts
 
