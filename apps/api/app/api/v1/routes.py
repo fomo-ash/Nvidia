@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from sqlalchemy import func, select
 
 from app.core.identity import Actor, get_actor, require_operator
+from app.core.config import settings
 from app.db.session import get_session
 from app.models.domain import (
     Approval,
@@ -14,6 +15,8 @@ from app.models.domain import (
     EvidenceItem,
     Execution,
     Incident,
+    IncidentTrigger,
+    InvestigationRequest,
     Investigation,
     Recommendation,
     VerificationResult,
@@ -27,6 +30,8 @@ from app.schemas.api import (
     ErrorOut,
     IncidentCreate,
     IncidentOut,
+    ManualIncidentCreate,
+    ManualIncidentOut,
     RecommendationOut,
     TimelineOut,
 )
@@ -43,6 +48,7 @@ from app.schemas.lifecycle import (
 )
 from app.services import cost_analyses as billing
 from app.services import operations
+from app.services import incident_intake
 from app.services import recommendations as workflow
 from app.services.costs import summary as cost_summary
 from app.services.idempotency import perform
@@ -103,8 +109,15 @@ def incidents(
     return page(db, select(Incident), Incident, response, "incidents", limit, offset, cursor)
 
 
-@router.post("/incidents", response_model=IncidentOut, status_code=201)
-def create_incident(payload: IncidentCreate, db: Database, actor: Operator, key: Key = None):
+@router.post("/incidents", response_model=IncidentOut | ManualIncidentOut, status_code=201)
+def create_incident(
+    payload: ManualIncidentCreate | IncidentCreate, db: Database, actor: Operator, key: Key = None
+):
+    if isinstance(payload, ManualIncidentCreate):
+        return incident_intake.report(db, payload, actor, key)
+    if not settings.local_demo_enabled:
+        raise HTTPException(403, "Synthetic incident creation is disabled")
+
     def create():
         item = Incident(**payload.model_dump())
         db.add(item)
@@ -115,6 +128,60 @@ def create_incident(payload: IncidentCreate, db: Database, actor: Operator, key:
     return perform(
         db, actor, key, "/incidents", payload.model_dump(mode="json"), create, IncidentOut, 201
     )
+
+
+@router.get("/incident-targets")
+def incident_targets():
+    return [
+        {
+            "target_id": incident_intake.TARGET_ID,
+            "cluster": "local-kind",
+            "namespace": "fixproof-demo",
+            "kind": "Deployment",
+            "name": "sample-api",
+            "uid": settings.sample_target_uid or None,
+        }
+    ]
+
+
+@router.get("/incidents/{incident_id}/triggers")
+def incident_triggers(incident_id: UUID, db: Database):
+    workflow.require_incident(db, incident_id)
+    triggers = db.scalars(
+        select(IncidentTrigger)
+        .where(IncidentTrigger.incident_id == incident_id)
+        .order_by(IncidentTrigger.reported_at, IncidentTrigger.id)
+    ).all()
+    return [
+        {
+            "id": item.id,
+            "source": item.source,
+            "reporter": item.reporter,
+            "summary": item.summary,
+            "note": item.note,
+            "reported_at": item.reported_at,
+        }
+        for item in triggers
+    ]
+
+
+@router.get("/incidents/{incident_id}/investigation-requests")
+def incident_requests(incident_id: UUID, db: Database):
+    workflow.require_incident(db, incident_id)
+    requests = db.scalars(
+        select(InvestigationRequest)
+        .where(InvestigationRequest.incident_id == incident_id)
+        .order_by(InvestigationRequest.created_at, InvestigationRequest.id)
+    ).all()
+    return [
+        {
+            "id": item.id,
+            "trigger_id": item.trigger_id,
+            "status": item.status,
+            "created_at": item.created_at,
+        }
+        for item in requests
+    ]
 
 
 @router.get("/incidents/{incident_id}", response_model=IncidentOut)

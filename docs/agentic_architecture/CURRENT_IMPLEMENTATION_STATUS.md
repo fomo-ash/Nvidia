@@ -8,8 +8,8 @@ AI and MCP remain read-only scaffolds for the planned local kind workflow. The [
 - Each new AI investigation receives a fresh run UUID, independent of incident identity. Reinvestigation collects new evidence instead of appending to an older checkpoint. Chat explicitly selects a run and checks its incident; its session history is also separated by run.
 - MCP evidence hashes bind ID, source, fact, raw payload, aware UTC observation time, mode and trust marker. AI retains that timestamp and rejects missing/naive/stale/future timestamps, wrong source/mode, or a mismatched hash. It also checks evidence age immediately before reasoning.
 - Metrics query only the registered sample job and `/api/work` route. Total, errors and source-scrape freshness share an explicit evaluation time. Source timestamps, query strings and window boundaries are retained; absent/nonfinite/stale data fails closed. Fractional counter increases are preserved.
-- `JevDecisionEngine` integrates a 3-tier fallback architecture: TypeSafe Jev (primary) -> Laya local `/v1/systemone` (open-source fallback) -> deterministic SRE policy rules. It uses Speculative Fan-Out (evaluating sufficiency, missing sources, outage status, and severity concurrently in a single request) and Confidence-Gated Routing.
-- 4-Tier Log Handling & Distillation: `tailLines=100`, 16KB hard memory cap, ANSI escape stripping, and 500-char per-line clamping at the MCP Kubernetes adapter; distilled into statistical summaries (`fact`) with `trusted=False` to defend against context blowup and prompt injection. See [Log Handling & Agentic Status](LOG_HANDLING_AND_AGENTIC_STATUS.md).
+- `JevDecisionEngine` now honors explicit `policy`, `jev`, and `laya` selection. External answer sets are accepted only after complete schema validation and cannot bypass trusted physical evidence or human approval. The bundled `infra/laya` service is a deterministic protocol fixture, not the Laya model.
+- Log handling uses `tailLines=100`, a 16KB hard memory cap, ANSI escape stripping, and 500-character per-line clamping in the MCP Kubernetes adapter. Logs remain untrusted evidence.
 - AI/MCP dependency lockfiles are consumed by Docker and a dedicated two-service CI matrix. Both services use the same pinned Ruff version as the API; imported scaffolds have been formatted.
 
 ## Local acceptance for this change
@@ -17,6 +17,10 @@ AI and MCP remain read-only scaffolds for the planned local kind workflow. The [
 Checks run in separate Python 3.12 environments with no cloud credentials or infrastructure mutations. AI tests cover new-run isolation, chat run/incident mismatch, timestamp/hash tampering, source/mode validation, and expiry before reasoning. MCP tests cover common evaluation time, explicit query scope, scrape freshness, malformed/absent data, evidence hash binding and disabled mutation.
 
 The final test counts and verification boundaries are recorded in the [change handoff](EVIDENCE_CONTRACT_HANDOFF.md). Local results do not establish GitHub CI, live kind connectivity, Nebius response quality, or infrastructure recovery. Docker was stopped during the initial review; container build/full-stack acceptance must be checked separately.
+
+System-1 provider selection, response validation, physical evidence gating, and the deterministic
+compatibility fixture were rechecked in the
+[System-1 stabilization handoff](SYSTEM1_STABILIZATION_HANDOFF.md).
 
 ## Still required before operator/live integration
 

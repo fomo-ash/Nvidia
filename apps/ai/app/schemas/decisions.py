@@ -15,10 +15,10 @@ class SufficiencyEvaluation(BaseModel):
     confidence: float = Field(default=0.9, ge=0.0, le=1.0)
     reason: str = Field(default="")
     is_active_outage: bool = Field(
-        default=True, description="Speculative fan-out: whether active service traffic is dropping"
+        default=False, description="Whether validated evidence indicates active failing traffic"
     )
-    severity_level: str = Field(
-        default="severe", description="Speculative fan-out: severity score assessment"
+    severity_level: Literal["unknown", "routine", "degraded", "severe", "critical"] = Field(
+        default="unknown", description="Validated System-1 severity assessment"
     )
 
 
@@ -28,6 +28,7 @@ class RiskEvaluation(BaseModel):
     confidence: float = Field(default=0.85, ge=0.0, le=1.0)
     requires_human_approval: bool = True
     is_reversible: bool = Field(
-        default=True, description="Speculative fan-out: whether proposed remediation can be rolled back"
+        default=True,
+        description="Whether the advisory provider considers the action reversible",
     )
     rationale: str = Field(default="")

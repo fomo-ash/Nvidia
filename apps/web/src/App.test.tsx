@@ -54,6 +54,25 @@ describe("operations console", () => {
     expect(screen.getByText("high")).toBeTruthy();
   });
 
+  it("signs in and reports the registered target as unassessed", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ csrf_token: "csrf-test" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [{ target_id: "local-kind/fixproof-demo/sample-api", uid: "uid-1", cluster: "local-kind", namespace: "fixproof-demo", name: "sample-api" }] })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ incident_id: "incident-1", trigger_id: "trigger-1", investigation_request_id: "request-1", reused: false, assessment: "unassessed" }) })
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal("fetch", fetch);
+    vi.stubGlobal("crypto", { randomUUID: () => "test-key" });
+    mount("/incidents");
+    await screen.findByText(/No incidents yet/);
+    fireEvent.change(screen.getByLabelText("Local operator secret"), { target: { value: "local-secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText(/UID: uid-1/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Report incident" }));
+    expect(await screen.findByText(/Awaiting evidence collection/)).toBeTruthy();
+    expect(fetch.mock.calls[3][1]).toMatchObject({ credentials: "include", headers: { "X-CSRF-Token": "csrf-test", "Idempotency-Key": "test-key" } });
+  });
+
   it("shows a recoverable overview error and unknown-route fallback", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     mount();

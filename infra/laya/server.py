@@ -1,13 +1,15 @@
-"""Local Laya System-1 Decision Server.
+"""Deterministic local server for the System-1 HTTP compatibility contract.
 
-Implements the /v1/systemone API specification compatible with TypeSafe Jev and Laya (https://laya-ai.com).
+This service is a bounded heuristic development fallback. It does not package or run the Laya
+open-weights model. A real Laya deployment may replace it when it exposes the same endpoint.
 """
 
 from typing import Any
-from fastapi import FastAPI, HTTPException, Request
+
+from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Laya Local System-1 Server", version="1.0.0")
+app = FastAPI(title="FixProof System-1 Policy Compatibility Server", version="1.0.0")
 
 
 class SystemOneRequest(BaseModel):
@@ -25,12 +27,12 @@ class SystemOneResponse(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "provider": "laya-local"}
+    return {"status": "ok", "provider": "deterministic-policy-compatibility"}
 
 
 @app.post("/v1/systemone", response_model=SystemOneResponse)
 async def system_one(payload: SystemOneRequest):
-    """Evaluate questions against state using calibrated heuristics or local model."""
+    """Evaluate supported questions with transparent deterministic heuristics."""
     state_lower = payload.state.lower()
     answers: dict[str, dict[str, Any]] = {}
 
@@ -44,10 +46,15 @@ async def system_one(payload: SystemOneRequest):
             # Check presence of vital signals in the state
             if "sufficient" in q_id or "sufficient" in instructions:
                 has_prometheus = "prometheus" in state_lower or "5xx" in state_lower
-                has_k8s = "kubernetes" in state_lower or "deployment" in state_lower or "pod" in state_lower
+                has_k8s = (
+                    "kubernetes" in state_lower
+                    or "deployment" in state_lower
+                    or "pod" in state_lower
+                )
                 noul = 0.92 if (has_prometheus and has_k8s) else 0.35
             elif "outage" in q_id or "traffic" in instructions:
-                noul = 0.95 if ("5xx" in state_lower or "error" in state_lower or "fail" in state_lower) else 0.10
+                failing = any(token in state_lower for token in ("5xx", "error", "fail"))
+                noul = 0.95 if failing else 0.10
             elif "human_approval" in q_id or "approval" in instructions:
                 noul = 0.95
             elif "reversible" in q_id or "rollback" in instructions:
@@ -77,7 +84,11 @@ async def system_one(payload: SystemOneRequest):
                     else:
                         chosen = options[0]
                 elif "risk" in q_id:
-                    chosen = "low" if "restore_known_good" in state_lower or "rollback" in state_lower else "medium"
+                    chosen = (
+                        "low"
+                        if "restore_known_good" in state_lower or "rollback" in state_lower
+                        else "medium"
+                    )
                     if chosen not in options:
                         chosen = options[0]
                 else:
