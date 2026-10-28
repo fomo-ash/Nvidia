@@ -2,7 +2,7 @@
 
 FixProof has one API control plane, one advisory AI service, and one bounded MCP infrastructure gateway. This directory describes their contracts; it does not claim that the kind recovery workflow is implemented.
 
-Read [current implementation status](CURRENT_IMPLEMENTATION_STATUS.md) for observed behavior, [AI architecture](AI_AGENT_ARCHITECTURE.md) for orchestration, [Jev & Laya decision engine](JEV_IMPLEMENTATION.md) for System-1 speculative fan-out and fallback, and [MCP architecture](MCP_ARCHITECTURE.md) for telemetry and the future execution boundary. The [implementation plan](../IMPLEMENTATION_PLAN.md) controls delivery order. The historical Phase 2 foundation remains complete; the new MVP phase numbering describes subsequent product work.
+Read [current implementation status](CURRENT_IMPLEMENTATION_STATUS.md) for observed behavior, [log handling pipeline & agentic status](LOG_HANDLING_AND_AGENTIC_STATUS.md) for telemetry bounding and Nemotron grounding, [iterative retrieval & context engineering](ITERATIVE_RETRIEVAL_AND_CONTEXT_ENGINEERING.md) for the target LangChain multi-pass architecture, [AI architecture](AI_AGENT_ARCHITECTURE.md) for orchestration, [Jev & Laya decision engine](JEV_IMPLEMENTATION.md) for System-1 speculative fan-out and fallback, and [MCP architecture](MCP_ARCHITECTURE.md) for telemetry and the future execution boundary. The [implementation plan](../IMPLEMENTATION_PLAN.md) controls delivery order. The historical Phase 2 foundation remains complete; the new MVP phase numbering describes subsequent product work.
 
 ## Authority and clients
 
