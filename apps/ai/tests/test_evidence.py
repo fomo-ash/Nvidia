@@ -49,7 +49,7 @@ async def test_client_evidence_validation(monkeypatch, fault):
     if fault == "naive_time":
         data["observed_at"] = datetime.now().isoformat()
     if fault == "altered_time":
-        data["observed_at"] = datetime.now(timezone.utc).isoformat()
+        data["observed_at"] = (datetime.fromisoformat(data["observed_at"]) + timedelta(seconds=1)).isoformat()
     if fault == "altered_id":
         data["id"] = "EVD-87654321"
     if fault == "altered_data":

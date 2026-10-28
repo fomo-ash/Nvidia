@@ -18,6 +18,32 @@ The MCP client tries SSE then private REST. It requires live evidence, the expec
 
 Chat's dynamic tools currently fetch observations that are not persisted and are not added to the final citation-validation set. Existing run evidence is not fully injected into the model context. Treat ChatOps as unfinished; before operator integration, persist each read through the API evidence bridge, pass the selected bounded evidence into the model, and reject unsupported factual claims. Run selection fixes do not complete chat grounding.
 
+## Decision engine, Laya fallback, and speculative fan-out
+
+The AI service uses a fast System-1 decision engine (`JevDecisionEngine`) to evaluate investigation sufficiency and score remediation risk before invoking heavier System-2 LLM reasoning (NVIDIA Nemotron via Nebius). See the dedicated [Jev & Laya Implementation Guide](JEV_IMPLEMENTATION.md) for full question schemas, sequence diagrams, and configuration details.
+
+### Three-Tier Fallback Hierarchy
+1. **Primary (TypeSafe Jev)**: Queries TypeSafe Jev via the official `typesafe-sdk` Python client or direct HTTP API (`https://api.typesafe.ai/v1/systemone`) when `JEV_API_KEY` (or `TYPESAFE_API_KEY`) is configured with a live production key.
+2. **Fallback (Laya - Open Source System-1)**: When Jev credentials are mock, unset, or unreachable, and `LAYA_ENABLED=true` (or a custom `LAYA_BASE_URL` is provided), the engine seamlessly falls back to a locally or privately hosted [Laya](https://laya-ai.com) instance exposing the identical `/v1/systemone` specification.
+3. **Deterministic SRE Policy**: If both Jev and Laya are unavailable (e.g. offline unit testing or disconnected local development), the engine evaluates hardcoded deterministic rules enforcing physical telemetry presence (requiring Prometheus metrics and Kubernetes deployment spec).
+
+### Speculative Fan-Out Architecture
+To avoid sequential latency and multiple roundtrips, the engine implements TypeSafe's **Speculative Fan-out** pattern: multiple orthogonal, atomic questions are packaged into a single `/v1/systemone` payload and evaluated concurrently in one shot:
+- **Sufficiency Fan-out**:
+  - `is_sufficient` (`noul` probability): isolates whether accumulated telemetry is sufficient without ambiguity.
+  - `missing_source` (`choice`): identifies which specific missing telemetry source (Prometheus, logs, deployment, direct probe) is urgently needed.
+  - `is_active_outage` (`noul` probability): verifies whether customer-facing traffic is actively failing.
+  - `severity` (`score` / tier): classifies incident severity (`routine`, `degraded`, `severe`, `critical`).
+- **Remediation Risk Fan-out**:
+  - `risk_tier` (`choice`): assigns risk level (`low`, `medium`, `high`, `critical`).
+  - `requires_human_approval` (`noul` probability): determines if manual human approval is mandatory.
+  - `is_reversible` (`noul` probability): scores reversibility of the candidate remediation action.
+
+### Confidence-Gated Routing
+Fast decisions are gated using confidence scoring:
+- Decisions with calibrated confidence $\ge 0.70$ and physical presence of core telemetry (`prometheus` and `kubernetes:deployment`) proceed automatically.
+- Ambiguous or low-confidence outputs, or those missing critical telemetry, halt automatic progression and trigger missing telemetry collection or human operator review.
+
 ## Reasoning and deterministic policy
 
 Nebius reasoning receives bounded fact text and evidence references. Live credentials/model failure never falls back to synthetic reasoning; explicit synthetic mode is for development only. The current parser checks citation membership but turns free text into one hypothesis with fixed confidence. It is not the final diagnosis schema and cannot produce an approvable proposal.
