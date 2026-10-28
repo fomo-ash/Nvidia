@@ -1,5 +1,6 @@
 """Unit tests for JevDecisionEngine with Laya fallback."""
 
+from datetime import datetime, timezone
 import httpx
 import pytest
 from app.decisions.jev_engine import JevDecisionEngine
@@ -27,6 +28,7 @@ async def test_jev_with_laya_http_fallback(monkeypatch):
         lambda **kw: original_client(transport=httpx.MockTransport(mock_post), **kw),
     )
 
+    now_iso = datetime.now(timezone.utc).isoformat()
     engine = JevDecisionEngine(api_key="mock-key", laya_base_url="http://mock-laya:8000")
     ev_full = [
         EvidenceReference(
@@ -36,6 +38,7 @@ async def test_jev_with_laya_http_fallback(monkeypatch):
             fact="metrics",
             trusted=True,
             mode="live",
+            observed_at=now_iso,
         ),
         EvidenceReference(
             id="EVD-2",
@@ -44,6 +47,7 @@ async def test_jev_with_laya_http_fallback(monkeypatch):
             fact="deploy",
             trusted=True,
             mode="live",
+            observed_at=now_iso,
         ),
     ]
     eval_result = await engine.evaluate_sufficiency(ev_full, attempt=1)

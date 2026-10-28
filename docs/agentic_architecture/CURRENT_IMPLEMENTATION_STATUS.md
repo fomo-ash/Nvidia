@@ -8,6 +8,7 @@ AI and MCP remain read-only scaffolds for the planned local kind workflow. The [
 - Each new AI investigation receives a fresh run UUID, independent of incident identity. Reinvestigation collects new evidence instead of appending to an older checkpoint. Chat explicitly selects a run and checks its incident; its session history is also separated by run.
 - MCP evidence hashes bind ID, source, fact, raw payload, aware UTC observation time, mode and trust marker. AI retains that timestamp and rejects missing/naive/stale/future timestamps, wrong source/mode, or a mismatched hash. It also checks evidence age immediately before reasoning.
 - Metrics query only the registered sample job and `/api/work` route. Total, errors and source-scrape freshness share an explicit evaluation time. Source timestamps, query strings and window boundaries are retained; absent/nonfinite/stale data fails closed. Fractional counter increases are preserved.
+- `JevDecisionEngine` integrates a 3-tier fallback architecture: TypeSafe Jev (primary) -> Laya local `/v1/systemone` (open-source fallback) -> deterministic SRE policy rules. It uses Speculative Fan-Out (evaluating sufficiency, missing sources, outage status, and severity concurrently in a single request) and Confidence-Gated Routing.
 - AI/MCP dependency lockfiles are consumed by Docker and a dedicated two-service CI matrix. Both services use the same pinned Ruff version as the API; imported scaffolds have been formatted.
 
 ## Local acceptance for this change
