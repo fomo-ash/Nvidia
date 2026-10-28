@@ -23,6 +23,15 @@ class Settings(BaseSettings):
     NEBIUS_BASE_URL: str = "https://api.studio.nebius.ai/v1"
     NEBIUS_MODEL: str = "nvidia/llama-3.1-nemotron-70b-instruct"
 
+    # System-1 Decision Engine Provider: "laya" (open-source non-autoregressive), "jev", or "policy"
+    SYSTEM1_PROVIDER: str = "laya"
+
+    # Laya Decision Engine (https://laya-ai.com/ & https://huggingface.co/convaiinnovations/laya)
+    LAYA_ENABLED: bool = False
+    LAYA_BASE_URL: str = "http://localhost:8000"
+    LAYA_API_KEY: str = ""
+    LAYA_MODE: str = "auto"  # "auto", "http", or "sdk"
+
     # TypeSafe Jev System-1 Decisions (Official: https://api.typesafe.ai/ & https://jevtypesafeai.com/jev/api)
     TYPESAFE_API_KEY: str = "mock-typesafe-key"
     JEV_API_KEY: str = ""
