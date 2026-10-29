@@ -189,7 +189,18 @@ def test_postgres_trigger_truncate_is_blocked(client, database, monkeypatch):
         db.rollback()
 
 
-@pytest.mark.parametrize("failure", [None, "unknown_citation", "unsupported_action", "timeout"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        None,
+        "unknown_citation",
+        "unsupported_action",
+        "timeout",
+        "model_gap",
+        "model_yaml",
+        "conflicting_ids",
+    ],
+)
 def test_model_output_is_advisory_and_failure_preserves_evidence(
     client, database, monkeypatch, failure
 ):
@@ -203,7 +214,7 @@ def test_model_output_is_advisory_and_failure_preserves_evidence(
         def analyze(self, incident_id, target_uid, evidence, gaps):
             if failure == "timeout":
                 raise TimeoutError("Provider unavailable")
-            return {
+            value = {
                 "provider": "nebius",
                 "model": "test-nemotron",
                 "analysis": {
@@ -224,13 +235,27 @@ def test_model_output_is_advisory_and_failure_preserves_evidence(
                     else "restore_known_good_template",
                 },
             }
+            if failure == "model_gap":
+                value["analysis"]["gaps"] = ["Logs need further investigation"]
+                value["analysis"]["advisory_action"] = "none"
+            if failure == "model_yaml":
+                value["analysis"]["yaml"] = "model-supplied template"
+            if failure == "conflicting_ids":
+                value["analysis"]["hypotheses"][0]["contradicting_evidence_ids"] = [
+                    evidence[0]["id"]
+                ]
+            return value
 
     worker.run_once(database[0], ModelReader())
     with database[0]() as db:
         run = db.scalar(select(Investigation))
         assert db.scalar(select(func.count()).select_from(EvidenceItem)) == 5
         assert db.scalar(select(func.count()).select_from(Recommendation)) == 0
-        if failure:
+        if failure == "model_gap":
+            assert run.status == "needs_review"
+            assert run.result["analysis"]["analysis"]["gaps"]
+            assert "model:reported_gaps" in run.result["gaps"]
+        elif failure:
             assert run.status == "needs_review" and run.result["analysis"] is None
         else:
             assert run.status == "completed" and run.result["analysis"]["provider"] == "nebius"

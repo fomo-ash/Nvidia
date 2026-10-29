@@ -342,19 +342,45 @@ def test_live_verdict_requires_fresh_attributable_measurements(client, database,
             return {"status": "succeeded", "details": {"mutation_performed": True}}
         stamp = datetime.now(timezone.utc).isoformat()
         return {
-            "status": "passed", "mode": "live", "details": {"reason": "Fresh recovery"},
+            "status": "passed",
+            "mode": "live",
+            "details": {"reason": "Fresh recovery"},
             "measurements": [
-                {"name": "rollout_available", "source": "kubernetes:deployment", "observed_at": stamp,
-                 "value": 1, "threshold": 1, "operator": "gte"},
+                {
+                    "name": "rollout_available",
+                    "source": "kubernetes:deployment",
+                    "observed_at": stamp,
+                    "value": 1,
+                    "threshold": 1,
+                    "operator": "gte",
+                },
                 *[
-                    {"name": f"health_probe_{index}", "source": "direct:probe", "observed_at": stamp,
-                     "value": 200, "threshold": 200, "operator": "eq"}
+                    {
+                        "name": f"health_probe_{index}",
+                        "source": "direct:probe",
+                        "observed_at": stamp,
+                        "value": 200,
+                        "threshold": 200,
+                        "operator": "eq",
+                    }
                     for index in range(1, 4)
                 ],
-                {"name": "work_requests", "source": "prometheus", "observed_at": stamp,
-                 "value": 120, "threshold": 20, "operator": "gte"},
-                {"name": "http_5xx_ratio", "source": "prometheus", "observed_at": stamp,
-                 "value": 0, "threshold": 0.01, "operator": "lt"},
+                {
+                    "name": "work_requests",
+                    "source": "prometheus",
+                    "observed_at": stamp,
+                    "value": 120,
+                    "threshold": 20,
+                    "operator": "gte",
+                },
+                {
+                    "name": "http_5xx_ratio",
+                    "source": "prometheus",
+                    "observed_at": stamp,
+                    "value": 0,
+                    "threshold": 0.01,
+                    "operator": "lt",
+                },
             ],
         }
 
@@ -367,8 +393,144 @@ def test_live_verdict_requires_fresh_attributable_measurements(client, database,
     assert execution.status_code == 201
     assert execution.json()["status"] == "succeeded"
     verify = client.post(
-        f"/api/v1/executions/{execution.json()['id']}/verify", json={},
+        f"/api/v1/executions/{execution.json()['id']}/verify",
+        json={},
         headers={**headers, "Idempotency-Key": "fresh-live-verdict"},
     )
     assert verify.status_code == 201, verify.text
     assert verify.json()["status"] == "passed"
+
+
+@pytest.mark.parametrize("fault", ["model_gaps", "model_target", "conflicting_citations"])
+def test_invalid_model_advice_cannot_become_live_proposal(client, database, monkeypatch, fault):
+    from uuid import UUID
+    from copy import deepcopy
+    from app.models.domain import Investigation
+
+    headers, incident_id, run_id = setup_live(client, database, monkeypatch)
+    assert register(client, headers).status_code == 201
+    with database[0]() as db:
+        run = db.get(Investigation, UUID(run_id))
+        result = deepcopy(run.result)
+        analysis = result["analysis"]["analysis"]
+        if fault == "model_gaps":
+            analysis["gaps"] = ["Source data cannot establish the fault"]
+        elif fault == "model_target":
+            analysis["target"] = "another-namespace/deployment"
+        else:
+            analysis["hypotheses"][0]["contradicting_evidence_ids"] = analysis["hypotheses"][0][
+                "supporting_evidence_ids"
+            ]
+        run.result = result
+        db.commit()
+    if fault != "model_target":
+        # New policy must not break viewing validly shaped historical records.
+        history = client.get(f"/api/v1/incidents/{incident_id}/investigations")
+        assert history.status_code == 200
+        assert history.json()[0]["result"] == result
+    response = client.post(
+        f"/api/v1/incidents/{incident_id}/proposals",
+        json={"investigation_id": run_id},
+        headers={**headers, "Idempotency-Key": "invalid-model-proposal"},
+    )
+    assert response.status_code == 409
+    with database[0]() as db:
+        assert db.scalar(select(Recommendation)) is None
+
+
+def test_legacy_proposal_with_model_gaps_remains_readable_but_cannot_be_approved(
+    client, database, monkeypatch
+):
+    from copy import deepcopy
+    from app.models.domain import Investigation
+    from app.schemas.analysis import Analysis
+
+    headers, incident_id, run_id = setup_live(client, database, monkeypatch)
+    assert register(client, headers).status_code == 201
+    with database[0]() as db:
+        run = db.get(Investigation, UUID(run_id))
+        result = deepcopy(run.result)
+        result["analysis"]["analysis"]["gaps"] = ["Legacy unresolved gap"]
+        run.result = result
+        db.commit()
+    # Reproduce the previous policy, which allowed restore advice despite model gaps.
+    with monkeypatch.context() as legacy:
+        legacy.setattr(Analysis, "validate_advisory", lambda self: self)
+        proposal_response = client.post(
+            f"/api/v1/incidents/{incident_id}/proposals",
+            json={"investigation_id": run_id},
+            headers={**headers, "Idempotency-Key": "legacy-proposal"},
+        )
+    assert proposal_response.status_code == 201
+    proposal = proposal_response.json()
+    assert client.get(f"/api/v1/incidents/{incident_id}/investigations").status_code == 200
+    response = client.post(
+        f"/api/v1/recommendations/{proposal['id']}/approve",
+        json={"proposal_hash": proposal["proposal_hash"]},
+        headers={**headers, "Idempotency-Key": "legacy-gap-approval"},
+    )
+    assert response.status_code == 409
+    assert client.get(f"/api/v1/recommendations/{proposal['id']}").json()["status"] == "proposed"
+
+
+def test_unchanged_pending_execution_blocks_a_new_proposal_from_executing(
+    client, database, monkeypatch
+):
+    from datetime import datetime, timedelta, timezone
+    from app.models.domain import Execution
+
+    headers, first = approved_live(client, database, monkeypatch)
+    calls = []
+
+    def unknown(url, payload, **kwargs):
+        calls.append(payload["execution_id"])
+        raise TimeoutError("Original request may still be running")
+
+    monkeypatch.setattr("app.services.live_evidence.post", unknown)
+    execution = client.post(
+        f"/api/v1/recommendations/{first['id']}/execute",
+        json={"proposal_hash": first["proposal_hash"]},
+        headers={**headers, "Idempotency-Key": "unknown-original"},
+    )
+    assert execution.status_code == 202
+    execution_id = execution.json()["id"]
+    # Even an old unchanged observation is insufficient proof that no patch happened.
+    with database[0]() as db:
+        db.get(Execution, UUID(execution_id)).started_at = datetime.now(timezone.utc) - timedelta(
+            minutes=10
+        )
+        db.commit()
+    reconciled = client.post(
+        f"/api/v1/executions/{execution_id}/reconcile",
+        json={},
+        headers={**headers, "Idempotency-Key": "unchanged-reconciliation"},
+    )
+    assert reconciled.status_code == 200 and reconciled.json()["status"] == "pending"
+    report = client.post(
+        "/api/v1/incidents",
+        json=REPORT,
+        headers={**headers, "Idempotency-Key": "fresh-report-after-unknown"},
+    ).json()
+    assert worker.run_once(database[0], Reader())
+    runs = client.get(f"/api/v1/incidents/{report['incident_id']}/investigations").json()
+    run = next(row for row in runs if row["request_id"] == report["investigation_request_id"])
+    proposal = client.post(
+        f"/api/v1/incidents/{report['incident_id']}/proposals",
+        json={"investigation_id": run["id"]},
+        headers={**headers, "Idempotency-Key": "new-proposal-after-unknown"},
+    )
+    assert proposal.status_code == 201, proposal.text
+    second = proposal.json()
+    approved = client.post(
+        f"/api/v1/recommendations/{second['id']}/approve",
+        json={"proposal_hash": second["proposal_hash"]},
+        headers={**headers, "Idempotency-Key": "new-approval-after-unknown"},
+    )
+    assert approved.status_code == 200
+    denied = client.post(
+        f"/api/v1/recommendations/{second['id']}/execute",
+        json={"proposal_hash": second["proposal_hash"]},
+        headers={**headers, "Idempotency-Key": "new-execution-after-unknown"},
+    )
+    assert denied.status_code == 409 and "unresolved execution" in denied.json()["detail"]
+    assert len(calls) == 1
