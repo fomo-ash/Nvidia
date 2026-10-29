@@ -27,7 +27,9 @@ def live_model_available() -> bool:
     return bool(key and not key.startswith("mock"))
 
 
-def get_nemotron_llm() -> ChatOpenAI:
+def get_nemotron_llm(
+    *, timeout: float = 20, max_retries: int = 1, max_tokens: int = 2048
+) -> ChatOpenAI:
     """Return the selected live provider using the existing client interface."""
     model, key, base_url = live_model_config()
     if not live_model_available():
@@ -37,9 +39,9 @@ def get_nemotron_llm() -> ChatOpenAI:
         api_key=key,
         base_url=base_url,
         temperature=0.1,
-        max_tokens=2048,
-        timeout=20,
-        max_retries=1,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        max_retries=max_retries,
     )
 
 
