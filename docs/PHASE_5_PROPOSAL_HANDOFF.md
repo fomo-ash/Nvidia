@@ -2,8 +2,6 @@
 
 This is the Phase 5 snapshot. Guarded execution and verification code added later is described in [the sequential recovery handoff](SEQUENTIAL_RECOVERY_HANDOFF.md); live release acceptance remains pending.
 
-Updated 2026-10-29. Branch `feat/sequential-recovery` starts from merged main `d84dc06`.
-
 ## Delivered
 
 - The operator can register the developer-captured healthy sample template through an authenticated, CSRF-protected API. Registration checks the configured UID, exact SHA-256, one-container sample shape and `FAIL_MODE=off`. A second different template for the same UID is rejected. SQLite and PostgreSQL triggers make registered rows append-only.

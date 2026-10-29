@@ -14,7 +14,7 @@ Use `docker compose down` or `make clean` to stop the application while retainin
 
 Both builds have appropriate ignore rules. The frontend build uses the repository root as context; do not use `docker build apps/web`. Use Compose, or `docker build -f apps/web/Dockerfile .`. The API build context remains apps/api.
 
-During local verification on 2026-10-18, Docker recovered from its earlier startup issue, but the pinned Grafana image repeatedly failed a layer checksum check. The database, API, web, and Prometheus were independently built/started and checked with:
+During initial local verification, Docker recovered from its earlier startup issue, but the pinned Grafana image repeatedly failed a layer checksum check. The database, API, web, and Prometheus were independently built/started and checked with:
 
 ```powershell
 docker compose --parallel 1 up --build --wait --wait-timeout 180 db api web prometheus

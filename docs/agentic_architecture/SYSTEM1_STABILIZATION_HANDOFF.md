@@ -1,6 +1,6 @@
 # System-1 stabilization handoff
 
-Recorded 2026-10-28 on local `main` after the Jev/Laya merge.
+This handoff covers Jev/Laya provider selection and validation.
 
 ## Delivered behavior
 

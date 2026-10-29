@@ -1,6 +1,6 @@
 # Live investigation handoff
 
-Updated 2026-10-29. This milestone integrates authenticated incident intake, durable evidence collection and structured model analysis. It builds on the intake, UI and System-1 changes merged at `06a50fb`. Infrastructure mutation and recovery verification remain planned work.
+This milestone integrates authenticated incident intake, durable evidence collection and structured model analysis. Infrastructure mutation and recovery verification remain planned work.
 
 ## Implementation
 

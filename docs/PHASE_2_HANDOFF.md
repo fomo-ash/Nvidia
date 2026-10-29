@@ -1,7 +1,5 @@
 # Phase 2 handoff
 
-Branch: feat/phase-2-domain-api.
-
 ## Implemented scope
 
 - Normalized investigations/evidence and separate approval decisions.
@@ -17,7 +15,7 @@ Branch: feat/phase-2-domain-api.
 
 ## Acceptance and release gates
 
-Verified locally on 2026-10-21:
+Local verification:
 
 - PostgreSQL, Python 3.13 development container, final source: 76 passed. Includes concurrent idempotent creates, competing execution keys, duplicate requests during pending execution, normalized migration backfill, and audit UPDATE/DELETE/TRUNCATE protection.
 - SQLite, Python 3.13 development container, final source: 70 passed, 6 PostgreSQL-only checks skipped.
@@ -28,7 +26,7 @@ Verified locally on 2026-10-21:
 
 Container acceptance suites used the built pinned Python 3.13 development image with the current backend mounted read-only; this avoided repeating dependency downloads while testing the exact branch source. The HTTP run used that same current source and the normal Alembic/Uvicorn startup sequence. The existing five-service/Grafana smoke was not rerun as part of this backend phase.
 
-Phase 2 is DONE. CI and required owner/cross-contract review completion were confirmed by the project owner when requesting this status update. The local acceptance evidence is recorded above; CI and review were not independently rechecked for this documentation update.
+The Phase 2 domain API milestone is marked complete following reported CI and contract-review approval. The checks above record its local acceptance; later integration results are documented in the subsequent handoffs.
 
 ## Intentional limits
 
@@ -44,5 +42,5 @@ The local role boundary is an integration point, not production login/authentica
 2. Review expiry/hash/evidence/approval/target checks and the commit-before-invoke boundary.
 3. Verify that replayed responses cannot bypass write roles or authorize a stale execution.
 4. Review rollback data-loss notes in DATABASE_SCHEMA.md.
-5. Review the POST /cost-analyses creation semantics and newest-first cursor pagination with Member 4.
-6. Agree on trusted execution/measurement adapters with Member 3 before enabling infrastructure changes.
+5. Review the POST /cost-analyses creation semantics and newest-first cursor pagination with the UI workstream.
+6. Agree on trusted execution/measurement adapters with the infrastructure workstream before enabling infrastructure changes.

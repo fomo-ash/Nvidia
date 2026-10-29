@@ -1,6 +1,6 @@
 # Repository assessment baseline
 
-Updated 2026-10-24 after pulling `origin/main` (commit `8410f31`). The original 2026-10-17 assessment described an empty repository; the implementation has advanced since then. This page records the historical baseline for the revised local-first MVP. Later architecture/evidence corrections and the observable kind fixture are recorded in [current agent status](agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md) and the [fixture handoff](KIND_FIXTURE_HANDOFF.md); the inventory below is the earlier snapshot. [Phase 2 handoff](PHASE_2_HANDOFF.md) contains the earlier test and review evidence.
+This page records the historical baseline for the revised local-first MVP. Later architecture/evidence corrections and the observable kind fixture are recorded in [current agent status](agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md) and the [fixture handoff](KIND_FIXTURE_HANDOFF.md); the inventory below is the earlier snapshot. [Phase 2 handoff](PHASE_2_HANDOFF.md) contains the earlier test and review evidence.
 
 | Area | Implemented in current source | Still needed for the verified-remediation MVP |
 |---|---|---|

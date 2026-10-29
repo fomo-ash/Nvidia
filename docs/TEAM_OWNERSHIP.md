@@ -1,6 +1,6 @@
 # Team ownership and integration
 
-The original four-member split remains a suggested coordination map, not a claim that those workstreams are complete. A solo developer can take the same interfaces in the [implementation order](IMPLEMENTATION_PLAN.md).
+Workstreams share the interfaces and integration order defined in the [implementation plan](IMPLEMENTATION_PLAN.md). Completion depends on the acceptance criteria for each phase.
 
 | Stream | Primary responsibility | Handoff |
 |---|---|---|
@@ -22,3 +22,5 @@ Review the contracts at three checkpoints: (1) evidence schema and sample metric
 | 6 Execution | API + local infrastructure | Preflight/action contract and Role permissions |
 | 7 Verification | API + UI | Measured verdict and timeline |
 | 8 Release | All streams | Clean-machine acceptance record |
+
+The investigation workstream covers evidence quality and the advisory response boundary. See [the investigation quality handoff](INVESTIGATION_QUALITY_HANDOFF.md) for implementation, tests and the explicit ChatOps deferral.

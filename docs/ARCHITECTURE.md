@@ -63,7 +63,7 @@ flowchart LR
 
 Compose runs web/API/database/Prometheus and the planned MCP service; kind runs the sample workload. The bootstrap must prove Compose-to-kind API and metrics connectivity **from inside containers**. Use a namespace-scoped ServiceAccount credential, never the host's cluster-admin kubeconfig or Docker socket. Nebius inference is the sole required remote service for this MVP and needs an internet connection. See [implementation plan](IMPLEMENTATION_PLAN.md) and [security](SECURITY.md).
 
-## Integrated read-only investigation path (2026-10-29)
+## Integrated read-only investigation path
 
 Authenticated intake now queues a durable request consumed by the API-package worker. The worker commits a lease, validates the exact Deployment UID, persists bounded/redacted MCP source snapshots under canonical API UUIDs, then invokes the stateless AI `/analyze` endpoint. Structured findings and provider/model metadata are committed to the same durable investigation. Leases serialize work per incident and prevent stale workers from committing after takeover. Each read-only attempt retains its own run; no product mutation is enabled.
 
