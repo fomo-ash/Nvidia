@@ -1,5 +1,9 @@
 # API contracts
 
+Live proposal additions: `POST /api/v1/trusted-baselines` registers the exact operator-captured healthy sample template with `target_uid`, `template`, `template_hash` and an idempotency key; `GET /api/v1/trusted-baselines/current` returns metadata without the template. `POST /api/v1/incidents/{incident_id}/proposals` takes `investigation_id` and an idempotency key, and returns a versioned, hashed restore recommendation with retained evidence IDs and exact preconditions. Approval and rejection use the existing recommendation endpoints and operator CSRF session. Live execution is disabled by default; the opt-in execution overlay is documented in [the sequential handoff](SEQUENTIAL_RECOVERY_HANDOFF.md).
+
+With that overlay enabled, `POST /api/v1/recommendations/{id}/execute` requires the exact approved `proposal_hash` and an `Idempotency-Key`. It records one pending claim before invoking the scoped MCP action; a successful response is an execution result only. `POST /api/v1/executions/{id}/reconcile` reads the Deployment for a pending unknown outcome without another patch. `POST /api/v1/executions/{id}/verify` records a separate live recovery verdict from fresh rollout, probe and Prometheus measurements. `GET /api/v1/executions/{id}/verification` returns the stored verdict. Verification is `passed`, `failed`, or `inconclusive` and never auto-closes the incident.
+
 The authenticated manual intake contract is recorded in [Phase 2 intake handoff](PHASE_2_INTAKE_HANDOFF.md). It extends `POST /api/v1/incidents` with the registered sample target, separate immutable trigger and queued investigation request. The legacy synthetic payload remains available in local demo mode. A live incident rejects the synthetic `investigate` route while real collection is pending.
 
 Application routes use /api/v1, UUID identifiers, JSON, and OpenAPI at /openapi.json. The source snapshot is apps/api/openapi.json; frontend definitions are generated into apps/web/src/services/schema.d.ts.
@@ -20,7 +24,7 @@ Browser CORS permits Idempotency-Key and exposes X-Next-Cursor and Idempotency-R
 
 All application POST routes accept Idempotency-Key; execute and verify require it. Keys contain 1–128 letters/digits/dot/underscore/colon/hyphen and start with a letter or digit. A key belongs to the server-resolved actor and binds to one route and validated payload. Reusing it for a different request returns 409.
 
-Completed retries replay the original status/body with Idempotency-Replayed: true without another state change or audit event. A replay is the original operation response, not a fresh resource read: use GET for current state. Pending execution/verification claims replay 202 and are not invoked again. Keys currently have no automatic expiry; retention and pending-operation reconciliation are deferred.
+Completed retries replay the original status/body with Idempotency-Replayed: true without another state change or audit event. A replay is the original operation response, not a fresh resource read: use GET for current state. Pending execution/verification claims replay 202 and are not invoked again. Keys currently have no automatic expiry; pending live actions can be reconciled through a read-only endpoint.
 
 ## Incident and investigation routes
 
@@ -75,7 +79,7 @@ Checks: python apps/api/scripts/export_openapi.py --check and pnpm contracts:che
 
 ## Proposed kind incident extensions
 
-These are **future contract changes**, not routes or fields in the current OpenAPI snapshot. Extend existing routes where possible and regenerate both `apps/api/openapi.json` and the frontend definitions before UI integration.
+This is the historical design table; implemented contracts are in `apps/api/openapi.json` and summarized above. Remaining rows describe future work.
 
 | Existing or new route | Target behavior |
 |---|---|

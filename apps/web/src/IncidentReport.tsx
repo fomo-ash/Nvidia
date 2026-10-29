@@ -32,7 +32,7 @@ export default function IncidentReport() {
     setBusy(true); setError("");
     try {
       const targets = await fetch(`${base}/api/v1/incident-targets`, { credentials: "include" });
-      if (targets.status === 401) { setCsrf(""); setTarget(null); throw new Error("Your session expired. Sign in again to refresh the target."); }
+      if (targets.status === 401) { setCsrf(""); sessionStorage.removeItem("fixproof_csrf"); setTarget(null); throw new Error("Your session expired. Sign in again to refresh the target."); }
       if (!targets.ok) throw new Error(await detail(targets));
       const items = await targets.json() as Target[];
       setTarget(items[0] ?? null);
@@ -49,7 +49,7 @@ export default function IncidentReport() {
       const targets = await fetch(`${base}/api/v1/incident-targets`, { credentials: "include" });
       if (!targets.ok) throw new Error(await detail(targets));
       const items = await targets.json() as Target[];
-      setTarget(items[0] ?? null); setCsrf(session.csrf_token); setSecret("");
+      setTarget(items[0] ?? null); setCsrf(session.csrf_token); sessionStorage.setItem("fixproof_csrf", session.csrf_token); setSecret("");
       await queryClient.invalidateQueries({ queryKey: ["incidents"] });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to sign in"); }
     finally { setBusy(false); }
@@ -67,7 +67,7 @@ export default function IncidentReport() {
         headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf, "Idempotency-Key": pendingReport.current.key },
         body,
       });
-      if (response.status === 401 || response.status === 403) { setCsrf(""); setTarget(null); throw new Error("Your session expired. Sign in again before reporting."); }
+      if (response.status === 401 || response.status === 403) { setCsrf(""); sessionStorage.removeItem("fixproof_csrf"); setTarget(null); throw new Error("Your session expired. Sign in again before reporting."); }
       if (response.status === 409) { await refreshTarget(); throw new Error("The registered target changed. Review the refreshed UID and submit again."); }
       if (!response.ok) throw new Error(await detail(response));
       setResult(await response.json() as Report);

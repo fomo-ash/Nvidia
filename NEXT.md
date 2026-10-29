@@ -1,5 +1,7 @@
   # FixProof: remaining work
 
+The current sequential implementation and observed checks are in [the recovery handoff](docs/SEQUENTIAL_RECOVERY_HANDOFF.md). Scoped execution and independent verification are implemented behind an opt-in overlay. The two live recovery cycles remain unverified because the external model timed out twice; the current stack has the write overlay disabled. The checklist below is a historical plan, with final release gates in the handoff.
+
 Updated 2026-10-29. This is the actionable continuation of [the MVP implementation plan](docs/IMPLEMENTATION_PLAN.md), based on the current feature branch. It records unfinished work; a passing unit test or UI message is not a live recovery result.
 
 ## Current handoff

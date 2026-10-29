@@ -2,13 +2,22 @@
 
 from typing import Literal, Protocol
 from datetime import timedelta
+from uuid import UUID
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, model_validator
 from sqlalchemy import select
 
-from app.models.domain import Approval, Execution, Recommendation, VerificationResult, now
+from app.models.domain import (
+    Approval,
+    Execution,
+    Incident,
+    Recommendation,
+    TrustedBaseline,
+    VerificationResult,
+    now,
+)
 from app.core.time import utc
 from app.schemas.lifecycle import ExecutionOut, VerificationOut
 from app.services.idempotency import finish, reserve
@@ -28,7 +37,7 @@ class Measurement(BaseModel):
     observed_at: AwareDatetime
     value: float = Field(allow_inf_nan=False)
     threshold: float = Field(allow_inf_nan=False)
-    operator: Literal["lt", "lte", "gt", "gte"]
+    operator: Literal["lt", "lte", "gt", "gte", "eq"]
 
     def passes(self):
         return {
@@ -36,6 +45,7 @@ class Measurement(BaseModel):
             "lte": self.value <= self.threshold,
             "gt": self.value > self.threshold,
             "gte": self.value >= self.threshold,
+            "eq": self.value == self.threshold,
         }[self.operator]
 
 
@@ -51,6 +61,28 @@ class Observation(BaseModel):
         if self.status != "inconclusive":
             if not self.measurements or self.mode not in {"synthetic", "live"}:
                 raise ValueError("A verification outcome requires attributable measurements")
+            if self.mode == "live":
+                expected = {
+                    "rollout_available": ("kubernetes:deployment", "gte", None),
+                    **{f"health_probe_{index}": ("direct:probe", "eq", 200)
+                       for index in range(1, 4)},
+                    "work_requests": ("prometheus", "gte", 20),
+                    "http_5xx_ratio": ("prometheus", "lt", 0.01),
+                }
+                names = [measurement.name for measurement in self.measurements]
+                if len(names) != len(set(names)) or any(name not in expected for name in names):
+                    raise ValueError("Unexpected live recovery measurement")
+                for measurement in self.measurements:
+                    source, operator, threshold = expected[measurement.name]
+                    if (
+                        measurement.source != source
+                        or measurement.operator != operator
+                        or (threshold is not None and measurement.threshold != threshold)
+                        or (measurement.name == "rollout_available" and measurement.threshold < 1)
+                    ):
+                        raise ValueError("Live recovery measurement contract changed")
+                if self.status == "passed" and set(names) != set(expected):
+                    raise ValueError("Passed live recovery requires all six measurements")
             passed = all(measurement.passes() for measurement in self.measurements)
             if (self.status == "passed") != passed:
                 raise ValueError("Verification status contradicts its measurements")
@@ -89,7 +121,57 @@ class UnconfiguredAdapter:
 
 
 def get_operations_adapter() -> OperationsAdapter:
+    from app.core.config import settings
+
+    if settings.live_execution_enabled and len(settings.execution_signing_key) >= 32:
+        return LiveKindAdapter()
     return UnconfiguredAdapter()
+
+
+class LiveKindAdapter:
+    name = "kind_restore"
+
+    def execute(self, execution):
+        from app.core.config import settings
+        from app.services.capability import issue
+        from app.services.live_evidence import post
+
+        params = execution.parameters
+        return ActionResult.model_validate(
+            post(
+                settings.mcp_server_url.rstrip("/") + "/internal/restore_known_good_template",
+                {
+                    "execution_id": str(execution.id),
+                    "proposal_hash": execution.proposal_hash,
+                    "namespace": params["namespace"],
+                    "deployment": params["deployment"],
+                    "uid": params["uid"],
+                    "resource_version": params["resource_version"],
+                    "expected_bad_template_hash": params["expected_bad_template_hash"],
+                    "desired_good_template_hash": params["desired_good_template_hash"],
+                    "desired_template": params["desired_template"],
+                    "capability_token": issue(execution),
+                },
+                timeout=15,
+            )
+        )
+
+    def verify(self, execution):
+        from app.core.config import settings
+        from app.services.live_evidence import post
+
+        return Observation.model_validate(
+            post(
+                settings.mcp_server_url.rstrip("/") + "/internal/verify_recovery",
+                {
+                    "uid": execution.parameters["uid"],
+                    "execution_id": str(execution.id),
+                    "desired_good_template_hash": execution.parameters["desired_good_template_hash"],
+                    "after": utc(execution.completed_at).isoformat(),
+                },
+                timeout=130,
+            )
+        )
 
 
 def execute(db, actor, key, recommendation_id, expected_hash, adapter):
@@ -105,6 +187,13 @@ def execute(db, actor, key, recommendation_id, expected_hash, adapter):
     item = db.get(Recommendation, recommendation_id)
     if item is None:
         raise HTTPException(404, "Recommendation not found")
+    incident = db.get(Incident, item.incident_id)
+    if incident.mode == "live" and adapter.name != "kind_restore":
+        raise HTTPException(
+            409, "Live execution is disabled pending scoped capability and preflight"
+        )
+    if incident.mode != "live" and adapter.name == "kind_restore":
+        adapter = UnconfiguredAdapter()
     require_incident(db, item.incident_id, lock=True)
     db.refresh(item)
     if item.status != "approved":
@@ -122,6 +211,12 @@ def execute(db, actor, key, recommendation_id, expected_hash, adapter):
         raise HTTPException(409, "No current exact approval record authorizes this action")
     if db.scalar(select(Execution.id).where(Execution.recommendation_id == item.id)):
         raise HTTPException(409, "This recommendation already has an execution attempt")
+    parameters = dict(item.parameters)
+    if incident.mode == "live":
+        baseline = db.get(TrustedBaseline, UUID(parameters["trusted_baseline_id"]))
+        if baseline is None:
+            raise HTTPException(409, "Trusted baseline unavailable")
+        parameters["desired_template"] = baseline.template
     execution = Execution(
         recommendation_id=item.id,
         approval_id=approval.id,
@@ -129,7 +224,7 @@ def execute(db, actor, key, recommendation_id, expected_hash, adapter):
         proposal_hash=item.proposal_hash,
         action=item.action,
         target=item.target,
-        parameters=dict(item.parameters),
+        parameters=parameters,
         adapter=adapter.name,
         status="pending",
         result={},
@@ -152,6 +247,26 @@ def execute(db, actor, key, recommendation_id, expected_hash, adapter):
     try:
         result = ActionResult.model_validate(adapter.execute(execution))
     except Exception:
+        if incident.mode == "live":
+            require_incident(db, incident_id, lock=True)
+            db.refresh(execution)
+            execution.result = {
+                "reason": "Action outcome unknown; reconcile before any further work",
+                "outcome_unknown": True,
+            }
+            audit(
+                db,
+                "execution",
+                execution.id,
+                "execution_outcome_unknown",
+                {"incident_id": str(incident_id), "recommendation_id": str(item.id)},
+                actor.id,
+            )
+            db.flush()
+            value = ExecutionOut.model_validate(execution).model_dump(mode="json")
+            finish(record, value, 202)
+            db.commit()
+            return JSONResponse(value, status_code=202)
         # Never expose adapter exceptions (they can contain credentials).
         result = ActionResult(
             status="failed",
@@ -183,6 +298,69 @@ def execute(db, actor, key, recommendation_id, expected_hash, adapter):
     finish(record, value, 201)
     db.commit()
     return JSONResponse(value, status_code=201)
+
+
+def reconcile(db, execution_id, actor):
+    """Observe a pending live action; never submit another patch."""
+    from app.services.live_evidence import LiveReader
+
+    execution = db.get(Execution, execution_id)
+    if execution is None:
+        raise HTTPException(404, "Execution not found")
+    item = db.get(Recommendation, execution.recommendation_id)
+    incident = require_incident(db, item.incident_id, lock=True)
+    if incident.mode != "live" or execution.adapter != "kind_restore":
+        raise HTTPException(409, "Only pending live executions can be reconciled")
+    db.refresh(execution)
+    if execution.status != "pending":
+        return execution
+    try:
+        observed = LiveReader().collect("kubernetes:deployment", execution.parameters["uid"])[
+            "raw_data"
+        ]
+    except Exception as exc:
+        raise HTTPException(409, "Current Deployment could not be checked") from exc
+    params = execution.parameters
+    if observed.get("uid") != params["uid"]:
+        raise HTTPException(409, "Target UID changed; execution outcome remains unknown")
+    if (
+        observed.get("execution_id") == str(execution.id)
+        and observed.get("template_hash") == params["desired_good_template_hash"]
+    ):
+        execution.status = "succeeded"
+        execution.result = {
+            "reason": "Exact patch confirmed by Deployment execution marker and template",
+            "mutation_performed": True,
+            "resource_version": observed.get("resource_version"),
+            "revision": observed.get("revision"),
+        }
+        item.status = "executed"
+    elif (
+        observed.get("execution_id") != str(execution.id)
+        and observed.get("template_hash") == params["expected_bad_template_hash"]
+        and observed.get("resource_version") == params["resource_version"]
+    ):
+        execution.status = "failed"
+        execution.result = {
+            "reason": "No patch observed at the original resource version",
+            "mutation_performed": False,
+        }
+        item.status = "execution_failed"
+    else:
+        return execution
+    execution.completed_at = now()
+    audit(
+        db,
+        "execution",
+        execution.id,
+        "execution_reconciled",
+        {
+            "incident_id": str(incident.id),
+            "status": execution.status,
+        },
+        actor.id,
+    )
+    return execution
 
 
 def verify(db, actor, key, execution_id, adapter):

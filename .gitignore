@@ -21,6 +21,7 @@ test-results/
 
 # Local tools, credentials, captured baselines and acceptance evidence
 .local/
+.tmp/
 .DS_Store
 apps/.DS_Stores
 

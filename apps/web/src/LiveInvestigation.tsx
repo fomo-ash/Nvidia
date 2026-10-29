@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { components } from "./services/schema";
+import LiveProposalReview from "./LiveProposalReview";
 
 type Investigation = components["schemas"]["InvestigationOut"];
 type Evidence = components["schemas"]["EvidenceItemOut"];
@@ -32,6 +33,7 @@ export default function LiveInvestigation({ incidentId }: { incidentId: string }
     </article>) : <p>No observations retained yet.</p>}
     <h4>Model interpretation</h4>
     {findings ? <><p>{findings.analysis.summary}</p><small>{findings.provider} · {findings.model}</small>{(findings.analysis.gaps ?? []).length > 0 && <p>Model gaps: {(findings.analysis.gaps ?? []).join(", ")}</p>}{findings.analysis.hypotheses.map((finding, index) => <article key={index}><p>{finding.cause}</p><p>Uncertainty: {finding.uncertainty}</p><p>Supporting evidence: {finding.supporting_evidence_ids.map(id => <a key={id} href={`#evidence-${id}`}>{id} </a>)}</p>{(finding.contradicting_evidence_ids ?? []).length > 0 && <p>Contradicting evidence: {(finding.contradicting_evidence_ids ?? []).join(", ")}</p>}</article>)}</> : <p>Validated model analysis is not available. Review the source observations.</p>}
-    <p>Human review required. Infrastructure changes are not enabled.</p>
+    <LiveProposalReview incidentId={incidentId} investigationId={latest.id} eligible={latest.status === "completed" && latest.result?.assessment === "active" && findings?.analysis.advisory_action === "restore_known_good_template"} />
+    <p>Human review and an exact approval are required before the guarded restore.</p>
   </section>;
 }

@@ -194,6 +194,12 @@ def validate_current(db, item, expected_hash):
         or proposal_digest(item) != item.proposal_hash
     ):
         raise HTTPException(409, "Proposal content changed; investigate and review again")
+    incident = db.get(Incident, item.incident_id)
+    if incident is not None and incident.mode == "live":
+        from app.services.live_proposals import validate_live_current
+
+        validate_live_current(db, item)
+        return
     try:
         Proposal.model_validate(
             {
@@ -238,6 +244,9 @@ def decide(
     item = db.get(Recommendation, recommendation_id)
     if item is None:
         raise HTTPException(404, "Recommendation not found")
+    incident = db.get(Incident, item.incident_id)
+    if incident.mode == "live" and actor.id == "local-demo-user":
+        raise HTTPException(401, "Operator session required")
     require_incident(db, item.incident_id, lock=True)
     db.refresh(item)
     if item.status != "proposed":

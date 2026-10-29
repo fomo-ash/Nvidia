@@ -37,10 +37,13 @@ async def test_probe_rejects_arbitrary_url():
 async def test_mcp_guarded_mutation_auth():
     """Verify restore tool rejects invalid capability tokens."""
     bad_req = RestoreActionRequest(
-        namespace="fixproof-demo",
-        deployment_name="sample-api",
-        expected_bad_template_hash="bad-hash",
-        desired_good_template_hash="good-hash",
+        execution_id="00000000-0000-0000-0000-000000000001",
+        proposal_hash="a" * 64,
+        uid="fixture-uid",
+        resource_version="10",
+        expected_bad_template_hash="b" * 64,
+        desired_good_template_hash="c" * 64,
+        desired_template={},
         capability_token="invalid-token",
     )
     res = await restore_known_good_template(bad_req)
@@ -77,10 +80,13 @@ def test_kubernetes_scope_and_missing_credentials_fail_closed(tmp_path):
 @pytest.mark.asyncio
 async def test_mutation_disabled_even_with_present_token():
     request = RestoreActionRequest(
-        namespace="fixproof-demo",
-        deployment_name="sample-api",
-        expected_bad_template_hash="bad",
-        desired_good_template_hash="good",
+        execution_id="00000000-0000-0000-0000-000000000001",
+        proposal_hash="a" * 64,
+        uid="fixture-uid",
+        resource_version="10",
+        expected_bad_template_hash="b" * 64,
+        desired_good_template_hash="c" * 64,
+        desired_template={},
         capability_token="anything",
     )
     result = await restore_known_good_template(request)
