@@ -22,7 +22,10 @@ class McpClient:
         data: dict[str, Any] | None = None
         try:
             async with asyncio.timeout(8):
-                async with sse_client(f"{self.base_url}/sse") as streams:
+                async with sse_client(
+                    f"{self.base_url}/sse",
+                    headers={"Authorization": "Bearer " + settings.SERVICE_AUTH_TOKEN},
+                ) as streams:
                     async with ClientSession(*streams) as session:
                         await session.initialize()
                         result = await session.call_tool(name, arguments=arguments)
@@ -38,7 +41,11 @@ class McpClient:
         if data is None:
             try:
                 async with httpx.AsyncClient(timeout=5.0) as client:
-                    response = await client.post(f"{self.base_url}/tools/{name}", json=arguments)
+                    response = await client.post(
+                        f"{self.base_url}/tools/{name}",
+                        json=arguments,
+                        headers={"Authorization": "Bearer " + settings.SERVICE_AUTH_TOKEN},
+                    )
                     response.raise_for_status()
                     data = response.json()
             except (httpx.HTTPError, ValueError) as exc:

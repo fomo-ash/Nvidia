@@ -16,8 +16,17 @@ services:
     restart: unless-stopped
   api:
     build: { context: ./apps/api, target: runtime }
-    env_file: .env
     environment:
+      OPERATOR_SECRET: ${OPERATOR_SECRET:-}
+      SESSION_SIGNING_KEY: ${SESSION_SIGNING_KEY:-}
+      SAMPLE_TARGET_UID: ${SAMPLE_TARGET_UID:-}
+      SAMPLE_CLUSTER_ID: ${SAMPLE_CLUSTER_ID:-local-kind}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:-}
+      MCP_SERVER_URL: http://mcp:8002
+      AI_SERVICE_URL: http://ai:8001
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173","http://127.0.0.1:5173"]}'
+      LLM_PROVIDER: mock
+      LOCAL_DEMO_ENABLED: ${LOCAL_DEMO_ENABLED:-false}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://fixproof:change-me-local-only@db:5432/fixproof}
     depends_on: { db: { condition: service_healthy } }
     ports: ["127.0.0.1:8000:8000"]
@@ -46,10 +55,10 @@ services:
     restart: unless-stopped
   mcp:
     build: { context: ./apps/mcp, target: runtime }
-    env_file: .env
     environment:
       HOST: "0.0.0.0"
       PORT: 8002
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:-}
       PROMETHEUS_URL: "http://prometheus:9090"
       KUBERNETES_NAMESPACE: "fixproof-demo"
     networks: [fixproof]
@@ -61,11 +70,11 @@ services:
     restart: unless-stopped
   ai:
     build: { context: ./apps/ai, target: runtime }
-    env_file: .env
     environment:
       HOST: "0.0.0.0"
       PORT: 8001
-      LLM_PROVIDER: ${LLM_PROVIDER:-nebius}
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:-}
+      LLM_PROVIDER: ${AI_LLM_PROVIDER:-nebius}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
@@ -79,7 +88,6 @@ services:
       LAYA_ENABLED: ${LAYA_ENABLED:-false}
       LAYA_BASE_URL: ${LAYA_BASE_URL:-http://laya:8000}
       LAYA_API_KEY: ${LAYA_API_KEY:-}
-      DATABASE_URL: ${AI_DATABASE_URL:-postgresql+asyncpg://fixproof:change-me-local-only@db:5432/fixproof}
       MCP_SERVER_URL: "http://mcp:8002"
       API_BASE_URL: "http://api:8000"
     depends_on: { db: { condition: service_healthy }, mcp: { condition: service_healthy } }

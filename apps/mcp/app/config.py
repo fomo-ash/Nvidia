@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     # Direct Probe Target
     SAMPLE_APP_HEALTH_URL: str = "http://localhost:8080/healthz"
 
-    # Capability Signing Key (shared with apps/api for one-use execution tokens)
+    SERVICE_AUTH_TOKEN: str = ""
+    KUBERNETES_TARGET_UID: str = ""
 
 
 settings = Settings()
