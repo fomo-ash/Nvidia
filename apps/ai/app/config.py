@@ -2,6 +2,7 @@
 
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,10 +21,10 @@ class Settings(BaseSettings):
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
     GROQ_MODEL: str = "openai/gpt-oss-20b"
 
-    # Nebius Token Factory / NVIDIA Nemotron 70B
+    # Nebius Token Factory / NVIDIA Nemotron
     NEBIUS_API_KEY: str = "mock-nebius-key"
-    NEBIUS_BASE_URL: str = "https://api.studio.nebius.ai/v1"
-    NEBIUS_MODEL: str = "nvidia/llama-3.1-nemotron-70b-instruct"
+    NEBIUS_BASE_URL: str = "https://api.tokenfactory.nebius.com/v1"
+    NEBIUS_MODEL: str = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
 
     # System-1 decision provider. Policy is the offline, no-network default.
     SYSTEM1_PROVIDER: Literal["policy", "jev", "laya"] = "policy"
@@ -46,6 +47,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/fixproof"
     SYNC_DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/fixproof"
 
+    # One attempt must finish before the API reader's 60-second deadline.
+    ANALYSIS_TIMEOUT_SECONDS: float = Field(default=45, ge=1, le=45)
+    ANALYSIS_MAX_COMPLETION_TOKENS: int = Field(default=8192, ge=1024, le=8192)
     SERVICE_AUTH_TOKEN: str = ""
 
     # Upstream Services

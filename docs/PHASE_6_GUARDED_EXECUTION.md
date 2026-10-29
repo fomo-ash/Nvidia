@@ -1,184 +1,87 @@
-# Phase 6: Guarded Execution, MCP Safety & RBAC
+# Guarded execution, MCP safety and Kubernetes permissions
 
-This document outlines the architecture, security invariants, and verified implementation of **Phase 6: Infrastructure & Guarded Execution**, owned by **Member 2** in accordance with `FixProof_Four_Member_Work_Division.pdf` and `4_member_final_plan.pdf`.
+The execution path restores one registered sample Deployment to its independently captured healthy template. Implementation and automated tests are separate from live acceptance; see the [approval and execution handoff](APPROVAL_EXECUTION_HANDOFF.md) for observed results.
 
----
+## Execution boundary
 
-## 1. Architectural Overview & Responsibility
-
-In FixProof, AI models (NVIDIA Nemotron 30B via Nebius Token Factory) analyze telemetry and advise on incident resolutions. However, **agents never mutate infrastructure directly**. 
-
-Phase 6 provides the **guarded execution boundary**:
-- **MCP Server (`apps/mcp`)**: An isolated microservice implementing the Model Context Protocol that enforces authorization, preflight checks, and verified rollbacks.
-- **Human-In-The-Loop (HITL) Gate**: The API issues a single-use, cryptographic capability token only after human review and approval.
-- **Least-Privilege Kubernetes Writer**: An isolated ServiceAccount constrained strictly to `patch` the target Deployment and forbidden from deleting resources or touching other workloads/namespaces.
-- **Atomic Preflight Drift Detection**: Preflight checks executed inside a single Kubernetes RFC 6902 JSON Patch transaction with `test` operations.
-- **Out-of-Band Verification**: Post-patch health confirmation combining Prometheus PromQL error ratios and live HTTP probes.
-
----
-
-## 2. End-to-End Execution Flow
+The API owns proposal construction, exact operator approval, durable execution claims and audit records. MCP independently checks the signed capability and current Kubernetes state. AI output never grants approval, selects the trusted baseline or supplies a patch.
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    actor Operator as Human SRE / Operator
-    participant API as FixProof API (:8000)
-    participant MCP as Guarded MCP Server (:8002)
-    participant K8s as Kubernetes API (Kind Cluster)
-    participant Prom as Prometheus (:9090)
-
-    Note over API,Operator: Phase 5: Proposal & HITL Approval
-    Operator->>API: Review Diff & Submit Approval (/approve)
-    API->>API: Mint HMAC-SHA256 Capability Token
-
-    rect rgb(230, 245, 255)
-    Note over API,K8s: Phase 6: Guarded Execution Handshake
-    API->>MCP: POST /tools/restore_sample_deployment
-    Note right of MCP: Arguments: token, target_uid, baseline_template
-    
-    MCP->>MCP: Validate Capability Token (Signature, Expiry, Hashes)
-    MCP->>K8s: Submit Atomic RFC 6902 JSON Patch (with test ops)
-    
-    alt Preflight Test Fails (UID, resourceVersion, or template drifted)
-        K8s-->>MCP: 409 Conflict / Precondition Failed
-        MCP-->>API: 409 Drift Rejected (0 Mutations Executed)
-    else Preflight Test Succeeds
-        K8s-->>K8s: Atomically Replace spec.template (FAIL_MODE=off)
-        K8s-->>MCP: 200 OK (Deployment Rolled Out)
-        MCP-->>API: 200 Success (Execution Recorded)
+    actor Operator
+    participant API as FixProof API
+    participant MCP as Scoped MCP service
+    participant K8s as Kubernetes API
+    Operator->>API: Approve exact proposal hash
+    Operator->>API: Execute with idempotency key
+    API->>API: Recheck approval and commit pending claim
+    API->>MCP: POST /internal/restore_known_good_template
+    MCP->>MCP: Check signature, expiry and exact scope
+    MCP->>K8s: Read registered Deployment with writer identity
+    MCP->>K8s: Atomic JSON Patch with UID, version and template tests
+    alt Preconditions match
+        K8s-->>MCP: Updated Deployment and execution marker
+        MCP-->>API: Action succeeded
+        API->>API: Persist execution result
+    else Exact preflight denied
+        MCP-->>API: Failed with mutation_performed=false
+    else Response outcome unknown
+        API->>API: Keep pending claim and block further incident execution
+        Operator->>API: Request read-only reconciliation
+        API->>MCP: Read Deployment evidence
+        MCP-->>API: Current template and execution marker
     end
-    end
-
-    rect rgb(240, 255, 240)
-    Note over MCP,Prom: Independent Post-Action Verification
-    API->>MCP: POST /tools/verify_target
-    MCP->>Prom: Query 60s Error Ratio (sample_http_requests_total)
-    MCP->>K8s: HTTP Probe /healthz & /readyz
-    MCP-->>API: Return Measured Verdict (Passed / Failed)
-    end
+    Note over API,K8s: Patch success is not a recovery verdict
 ```
 
----
+## Separate Kubernetes identities
 
-## 3. The 4 Security Invariants
+Only MCP mounts Kubernetes credentials. The developer kubeconfig is not mounted into application containers.
 
-### 1. Scoped Kubernetes RBAC Boundary
-The execution service never mounts cluster-admin credentials. It is separated into two short-lived ServiceAccounts:
-- **`fixproof-reader`**: `get`, `list` on deployments, pods, and services in `fixproof-demo`.
-- **`fixproof-writer`**: Bound by `RoleBinding` to `fixproof-writer` Role:
-  ```yaml
-  apiVersion: rbac.authorization.k8s.io/v1
-  kind: Role
-  metadata:
-    name: fixproof-writer
-    namespace: fixproof-demo
-  rules:
-    - apiGroups: ["apps"]
-      resources: ["deployments"]
-      resourceNames: ["sample-api"]
-      verbs: ["get", "patch"]
-  ```
-- **Verified via `scripts/check_writer_scope.py`:**
-  - `writer can patch sample`: **PASS**
-  - `writer cannot patch other deployment` (e.g. `sample-traffic`): **PASS**
-  - `writer cannot patch other namespace` (e.g. `kube-system`): **PASS**
-  - `writer cannot delete sample`: **PASS**
-  - `reader cannot patch sample`: **PASS**
+| Identity | Namespace | Permissions |
+|---|---|---|
+| `fixproof-reader` | `fixproof-demo` | Get `sample-api`; get/list ReplicaSets, pods and events; get pod logs |
+| `fixproof-writer` | `fixproof-demo` | Get and patch only Deployment `sample-api` |
 
-### 2. Cryptographic Capability Token Handshake
-Every mutation request requires an HMAC-SHA256 capability token:
-$$\text{token} = \text{base64url}(\text{payload}) \mathbin{\Vert} \text{HMAC-SHA256}_{K}(\text{payload})$$
+The writer Role has `resourceNames: [sample-api]` and verbs `[get, patch]`. It cannot delete the sample or patch another Deployment or namespace. The reader cannot patch. `scripts/check_writer_scope.py` checks these boundaries using the scoped credentials.
 
-The payload strictly binds:
-```json
-{
-  "sub": "fixproof-execution",
-  "proposal_id": "<UUID>",
-  "target_uid": "<Deployment-UID>",
-  "template_hash": "<SHA256-of-trusted-baseline>",
-  "exp": 1730248200
-}
-```
-The MCP tool verifies the signature using constant-time comparison (`hmac.compare_digest`), checks expiry, and matches `template_hash` against the template payload.
+The opt-in `compose.execution.yaml` overlay mounts the writer token only into MCP and supplies a separate execution-signing key only to API and MCP. Removing the overlay removes the writer mount and disables live execution.
 
-### 3. Atomic Preflight Drift Protection
-To eliminate Time-of-Check to Time-of-Use (TOCTOU) race conditions, preflight checks are performed **inside the Kubernetes JSON Patch itself** via RFC 6902 `test` operations:
-```json
-[
-  { "op": "test", "path": "/metadata/uid", "value": "cd99902b-6f48-425a-a9c3-b3d611034813" },
-  { "op": "test", "path": "/metadata/resourceVersion", "value": "104" },
-  { "op": "test", "path": "/spec/template", "value": <observed_faulty_template> },
-  { "op": "replace", "path": "/spec/template", "value": <known_good_baseline_template> }
-]
-```
-If the deployment was modified, deleted, or hotfixed between approval and execution, the Kubernetes API server natively rejects the patch.
+## Exact capability
 
-### 4. Independent Verification
-Patch success does not equate to incident recovery. The MCP server independently executes verification probes over a 60-second window:
-1. **Traffic Error Ratio**: Queries Prometheus (`sample_http_requests_total{status="500"}` / total). Recovery requires $\ge 20$ requests and $< 1\%$ 5xx errors.
-2. **Health Probes**: Direct HTTP calls to `/healthz` and `/readyz` returning status 200.
+Every restore requires a signed capability with these exact claims:
 
----
+| Claims | Bound value |
+|---|---|
+| `execution_id`, `proposal_hash` | Durable execution and reviewed proposal |
+| `cluster`, `namespace`, `deployment`, `uid` | Registered sample identity |
+| `resource_version` | Approved Kubernetes state |
+| `expected_bad_template_hash`, `desired_good_template_hash` | Exact observed and trusted templates |
+| `expires_at` | Integer expiry within a 60-second lifetime |
 
-## 4. Codex Audit & Resolved Regressions
+The API signs the encoded claims with HMAC-SHA256. MCP uses constant-time signature comparison and rejects unexpected claims, expired capabilities and any mismatch between claims and request fields. Capability contents and keys must not be logged.
 
-During the review of merged PR #13 code, four critical blocking issues were identified and resolved:
+## Atomic preconditions and replay
 
-| # | Component | Root Cause | Fix Applied |
-|---|-----------|------------|-------------|
-| 1 | `apps/ai` / `.env` | Unsupported model name `llama-3.3-70b-versatile` resulted in 50-second timeouts against Nebius Token Factory. | Updated `.env` to `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`. |
-| 2 | `apps/mcp` / `.env` | `EXECUTION_SIGNING_KEY` was missing from `.env`, causing capability token verification to fail closed. | Provisioned cryptographic signing key and mounted it via `compose.execution.yaml`. |
-| 3 | `apps/api` / `.env` | `LIVE_EXECUTION_ENABLED=true` was hardcoded in `.env`, breaking unit tests that assert fail-closed execution behavior. | Set `LIVE_EXECUTION_ENABLED=false` as default; only enabled explicitly during execution overlay runs. |
-| 4 | `apps/api/tests` | Missing test isolation caused `test_api.py` and `test_lifecycle.py` to fail with `401 Unauthorized` across 38 tests. | Added `monkeypatch.setattr(settings, "local_demo_enabled", True)` to `conftest.py`. |
+MCP validates the desired template hash and the sample shape, derives the expected faulty template and reads the current Deployment. It requires the exact registered UID, resource version and faulty template. The patch itself contains Kubernetes JSON Patch `test` operations for UID, resource version and template before replacing the template and adding `fixproof.dev/execution-id`.
 
----
+Both preflight and atomic tests are required: the initial read alone cannot prevent drift between checking and patching. A failed test causes no mutation. The signed state and execution marker prevent same-execution replay from applying another patch.
 
-## 5. Verification & Test Evidence
+The API commits its pending claim before sending the request. The same idempotency key replays the original response; another key cannot repeat the recommendation. While a live claim remains pending, no other recommendation for that incident can execute.
 
-### Test Suites
-- **MCP Test Suite (`apps/mcp`)**: **31 passed in 4.56s**
-  - Preflight drift rejection (`test_restore_guard.py`)
-  - Verification & metrics checks (`test_verification.py`, `test_metrics.py`)
-  - Live bounds & token validation (`test_live_bounds.py`)
-- **API Test Suite (`apps/api`)**: **91 passed, 8 skipped (Postgres-only) in 40.58s**
-  - Proposal generation, approval contracts, and execution failure handling (`test_live_proposals.py`)
-  - Full intake, audit immutability, and lifecycle operations (`test_lifecycle.py`)
+## Unknown outcomes
 
-### RBAC Scope Output (`scripts/check_writer_scope.py`)
-```
-writer can patch sample: pass
-writer cannot patch other deployment: pass
-writer cannot patch other namespace: pass
-writer cannot delete sample: pass
-reader cannot patch sample: pass
-```
+Timeouts and interrupted responses retain a pending execution. Reconciliation only reads current evidence. Matching UID, execution marker and trusted template confirm the action. An unchanged or drifted Deployment remains pending, because absence of an observed patch does not prove an in-flight request cannot complete. No reconciliation path submits another patch.
 
----
+## Verification boundary
 
-## 6. File Ownership Directory
+A successful patch records `execution_succeeded`, not recovered status. Independent rollout, health-probe and traffic-window verdicts are a separate workflow. The execution acceptance script does not invoke `/verify`, auto-close incidents or certify UI/release behavior.
 
-```
-apps/mcp/
-├── app/
-│   ├── adapters/
-│   │   ├── kubernetes.py          # Atomic JSON Patch with RFC 6902 test ops
-│   │   ├── prometheus.py          # PromQL query adapter for error ratios
-│   │   └── probe.py               # Direct HTTP healthz/readyz probe
-│   └── tools/
-│       ├── capability.py          # HMAC-SHA256 token verification
-│       ├── patch.py               # Guarded restore patch tool
-│       └── verification.py        # Verification orchestrator
-└── tests/
-    ├── test_restore_guard.py      # Preflight rejection tests
-    ├── test_verification.py       # Metrics probe tests
-    └── test_live_bounds.py        # Token signature tests
+## Checks and local acceptance
 
-infra/kind/
-├── mcp-writer.yaml                # Least-privilege writer Role & Binding
-└── mcp-reader.yaml                # Read-only collector Role & Binding
+- API SQLite: 99 passed, eight PostgreSQL-only skipped.
+- Isolated PostgreSQL: 107 passed, including migrations, concurrency, audit and replay.
+- MCP: 33 passed, including capability rejection and atomic patch replay tests.
+- Writer scope: registered sample patch allowed; other Deployment/namespace patch, deletion and reader patch denied.
 
-compose.execution.yaml             # Docker Compose overlay for execution tokens
-scripts/check_writer_scope.py      # Automated RBAC verification check
-```
-
+For live rejection, expiry, drift, capability and restore results, use the [acceptance record](APPROVAL_EXECUTION_HANDOFF.md). Run `scripts/smoke_execution.py` only against the owned fixture with the execution overlay enabled and a temporary 60-second proposal TTL. Restore the normal stack afterward. Tests preserve the application database volume; isolated database checks use a separate disposable container.

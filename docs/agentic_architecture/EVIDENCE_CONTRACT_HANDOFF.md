@@ -1,6 +1,6 @@
 # Architecture and evidence correction handoff
 
-Branch: `fix/agent-evidence-contracts`. No infrastructure mutation or new live proposal path is enabled.
+No infrastructure mutation or new live proposal path is enabled.
 
 ## Delivered
 

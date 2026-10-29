@@ -125,6 +125,7 @@ def propose(db, incident_id: UUID, investigation_id: UUID, actor):
         raise HTTPException(409, "Investigation has gaps or no active fault")
     try:
         analysis = AnalysisResult.model_validate(run.result["analysis"])
+        analysis.analysis.validate_advisory()
     except Exception as exc:
         raise HTTPException(409, "Validated analysis is unavailable") from exc
     if analysis.analysis.advisory_action != "restore_known_good_template":
@@ -266,6 +267,17 @@ def validate_live_current(db, item: Recommendation):
         or item.parameters.get("analysis_hash") != digest(run.result.get("analysis"))
     ):
         raise HTTPException(409, "Retained investigation changed")
+    try:
+        advice = AnalysisResult.model_validate(run.result["analysis"]).analysis
+        advice.validate_advisory()
+        if (
+            run.result.get("gaps")
+            or advice.gaps
+            or advice.advisory_action != "restore_known_good_template"
+        ):
+            raise ValueError("Advice requires review")
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(409, "Retained analysis requires manual review") from exc
     rows = db.scalars(select(EvidenceItem).where(EvidenceItem.investigation_id == run.id)).all()
     expected = sorted(
         (

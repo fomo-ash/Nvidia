@@ -1,6 +1,6 @@
 # Phase 2 manual incident intake handoff
 
-Updated 2026-10-28. This documents the implementation on top of `main` at `59d6e13` and the checks performed in this Windows workspace.
+This handoff covers authenticated intake and its initial Windows checks. Subsequent macOS acceptance is recorded below.
 
 ## What is implemented
 
@@ -47,12 +47,12 @@ Migration `0004_incident_intake` adds nullable target fields to preserve legacy 
 
 The sample target UID is registered from fixture state by an operator. Phase 3 must add a restricted Kubernetes read integration, check live UID drift independently, claim queued requests, persist real MCP evidence, and expose collection errors. A queued request is not a completed investigation. PostgreSQL migration/concurrency checks and the full Compose/kind scenario still need a live host run before calling this milestone accepted on both databases.
 
-## Environment retest, 2026-10-28
+## Environment retest
 
 After the local `.env` was updated, the API suite was rerun: 72 passed, 6 PostgreSQL-only skipped. AI: 31 passed. MCP: 21 passed. Web: 8 passed; production build and generated contract check passed. `docker compose config --quiet` passed.
 
 The updated `.env` still has `LOCAL_DEMO_ENABLED=true` and does not define `OPERATOR_SECRET`, `SESSION_SIGNING_KEY`, or `SAMPLE_TARGET_UID`. Therefore the authenticated operator login and registered-target report are not ready for a live run. The isolated PostgreSQL check was retried, but Docker Desktop again stopped at `db-checks Starting` before tests ran. It was interrupted; a status check showed no running check-project containers. Set the three missing values and disable local demo access as described above, then repeat the full Compose/kind intake run.
 
-## Subsequent macOS acceptance, 2026-10-29
+## Subsequent macOS acceptance
 
 The earlier Windows environment gaps above are historical. The operator/session configuration, registered UID and scoped reader are now configured locally; PostgreSQL, live fault/report/restart and two real-browser cases passed. The queue is consumed by the read-only worker, with canonical live evidence and validated model findings persisted. Typed target/trigger/request response contracts and generated UI types are complete. See [live investigation handoff](LIVE_INVESTIGATION_HANDOFF.md) for actual counts and limits. This does not complete proposal approval, infrastructure execution or recovery verification.

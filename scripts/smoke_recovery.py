@@ -73,7 +73,10 @@ def main():
                 time.sleep(2)
             assert run and run["status"] == "completed", "Live investigation unavailable"
             assert run["result"]["assessment"] == "active"
-            assert run["result"]["analysis"]["analysis"]["advisory_action"] == "restore_known_good_template"
+            assert (
+                run["result"]["analysis"]["analysis"]["advisory_action"]
+                == "restore_known_good_template"
+            )
             evidence = request(f"/api/v1/investigations/{run['id']}/evidence")
             assert len(evidence) == 5 and all(not row["collection_error"] for row in evidence)
             proposal = request(
@@ -85,37 +88,50 @@ def main():
             assert proposal["parameters"]["desired_good_template_hash"] == baseline["template_hash"]
             path = f"/api/v1/recommendations/{proposal['id']}"
             request(
-                path + "/approve", {"proposal_hash": "0" * 64},
-                "wrong-hash-" + secrets.token_hex(12), expected=(409,),
+                path + "/approve",
+                {"proposal_hash": "0" * 64},
+                "wrong-hash-" + secrets.token_hex(12),
+                expected=(409,),
             )
             approval = request(
-                path + "/approve", {"proposal_hash": proposal["proposal_hash"]},
+                path + "/approve",
+                {"proposal_hash": proposal["proposal_hash"]},
                 "exact-approval-" + secrets.token_hex(12),
             )
             assert approval["status"] == "approved"
             execution_key = "execute-" + secrets.token_hex(12)
             execution = request(
-                path + "/execute", {"proposal_hash": proposal["proposal_hash"]},
-                execution_key, expected=(201, 202),
+                path + "/execute",
+                {"proposal_hash": proposal["proposal_hash"]},
+                execution_key,
+                expected=(201, 202),
             )
             if execution["status"] == "pending":
                 execution = request(
-                    f"/api/v1/executions/{execution['id']}/reconcile", {},
+                    f"/api/v1/executions/{execution['id']}/reconcile",
+                    {},
                     "reconcile-" + secrets.token_hex(12),
                 )
             assert execution["status"] == "succeeded", execution
             replay = request(
-                path + "/execute", {"proposal_hash": proposal["proposal_hash"]},
-                execution_key, expected=(201, 202),
+                path + "/execute",
+                {"proposal_hash": proposal["proposal_hash"]},
+                execution_key,
+                expected=(201, 202),
             )
             assert replay["id"] == execution["id"]
             request(
-                path + "/execute", {"proposal_hash": proposal["proposal_hash"]},
-                "duplicate-" + secrets.token_hex(12), expected=(409,),
+                path + "/execute",
+                {"proposal_hash": proposal["proposal_hash"]},
+                "duplicate-" + secrets.token_hex(12),
+                expected=(409,),
             )
             verification = request(
-                f"/api/v1/executions/{execution['id']}/verify", {},
-                "verify-" + secrets.token_hex(12), expected=(201,), timeout=150,
+                f"/api/v1/executions/{execution['id']}/verify",
+                {},
+                "verify-" + secrets.token_hex(12),
+                expected=(201,),
+                timeout=150,
             )
             assert verification["status"] == "passed", verification
             measurements = verification["observations"]["measurements"]
@@ -123,19 +139,30 @@ def main():
             assert verification["observations"]["mode"] == "live"
             healthy = fixture.deployment()
             assert fixture.template_hash(healthy["spec"]["template"]) == baseline["template_hash"]
-            assert healthy["metadata"]["annotations"]["fixproof.dev/execution-id"] == execution["id"]
+            assert (
+                healthy["metadata"]["annotations"]["fixproof.dev/execution-id"] == execution["id"]
+            )
             receipt = {
-                "cycle": cycle, "incident_id": incident_id,
-                "investigation_id": run["id"], "proposal_id": proposal["id"],
-                "approval_status": approval["status"], "execution_id": execution["id"],
+                "cycle": cycle,
+                "incident_id": incident_id,
+                "investigation_id": run["id"],
+                "proposal_id": proposal["id"],
+                "approval_status": approval["status"],
+                "execution_id": execution["id"],
                 "execution_status": execution["status"],
                 "verification_id": verification["id"],
                 "verification_status": verification["status"],
                 "measurements": measurements,
-                "wrong_hash_denied": True, "duplicate_execution_denied": True,
+                "wrong_hash_denied": True,
+                "duplicate_execution_denied": True,
             }
             receipts.append(receipt)
-            print(json.dumps({"cycle": cycle, "verification": "passed", "execution_id": execution["id"]}), flush=True)
+            print(
+                json.dumps(
+                    {"cycle": cycle, "verification": "passed", "execution_id": execution["id"]}
+                ),
+                flush=True,
+            )
         fixture.write_private(fixture.STATE / "recovery-acceptance.json", receipts)
     finally:
         fixture.change(False)

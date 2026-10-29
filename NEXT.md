@@ -1,8 +1,10 @@
-  # FixProof: remaining work
+# FixProof: remaining work
 
-The current sequential implementation and observed checks are in [the recovery handoff](docs/SEQUENTIAL_RECOVERY_HANDOFF.md). Scoped execution and independent verification are implemented behind an opt-in overlay. The two live recovery cycles remain unverified because the external model timed out twice; the current stack has the write overlay disabled. The checklist below is a historical plan, with final release gates in the handoff.
+Investigation quality checks passed: bounded single-attempt Nebius analysis, strict citation/source checks, model-gap review handling and historical-record compatibility. See [investigation quality handoff](docs/INVESTIGATION_QUALITY_HANDOFF.md). Grounded ChatOps is explicitly deferred. The next integrated trial still needs fresh evidence, exact human approval and the separately guarded execution/verification steps.
 
-Updated 2026-10-29. This is the actionable continuation of [the MVP implementation plan](docs/IMPLEMENTATION_PLAN.md), based on the current feature branch. It records unfinished work; a passing unit test or UI message is not a live recovery result.
+Backend approval and guarded execution acceptance now pass locally; see [the approval/execution handoff](docs/APPROVAL_EXECUTION_HANDOFF.md). Rejection, expired approval, pre/post-approval drift, invalid capabilities and replay were denied without mutation, and one exact approved restore succeeded. Execution is disabled again. Independent recovery verdicts, two complete verified cycles and final UI/release acceptance remain open.
+
+This checklist tracks the remaining work in [the MVP implementation plan](docs/IMPLEMENTATION_PLAN.md). It records unfinished work; a passing unit test or UI message is not a live recovery result.
 
 ## Current handoff
 
@@ -32,7 +34,7 @@ The pre-existing Jev/Laya implementation is preserved and advisory. Legacy stand
 
 - [x] Verify the currently available NVIDIA Nemotron model, endpoint, and response shape with a credential-gated live Nebius call. Keep deterministic CI fixtures and bounded timeout/retry budgets. Groq remains a temporary development provider, not the release acceptance path.
 - [x] Build a small redacted evidence bundle with stored IDs. Require structured hypotheses, supporting and contradicting IDs, gaps, uncertainty, and an allowlisted advisory action name. Reject malformed output, unknown citations, unsupported actions, target drift, and prompt instructions embedded in logs. Persist provider/model/request metadata and validated findings.
-- [ ] Ground ChatOps in retained evidence, persist tool reads, validate dynamic citations against the complete set, and limit inference/tool/concurrency budgets. Remove fixed-confidence and fixed-root-cause claims.
+- [ ] Deferred: ground ChatOps in retained evidence, persist tool reads, validate dynamic citations against the complete set, and limit conversation/tool budgets before exposing it to operators. Integrated analysis has bounded inference and no fixed-confidence/root-cause fields; see the investigation quality handoff.
 - [x] UI: show measurements, source gaps, and model interpretation in separate sections. On provider failure show `needs_review`; do not create an approvable proposal.
 
 ## Phase 5: exact proposal and human review (completed locally; CI/review pending)
@@ -41,12 +43,12 @@ The pre-existing Jev/Laya implementation is preserved and advisory. Legacy stand
 - [x] Extend approval policy to the authenticated operator session. Any content or target change creates a new version and invalidates old approval. Keep Kubernetes access read-only in this phase.
 - [x] UI: incident detail and review screen must show evidence, uncertainty, exact target/change, expected effect, verification plan, and separate approve/reject actions. Add denial tests for rejected, expired, changed, missing-citation, duplicate, and wrong-target proposals.
 
-## Phase 6: one guarded restore action (implementation completed; live trial pending)
+## Phase 6: one guarded restore action (locally accepted; CI/review pending)
 
 - [x] Design pending-operation reconciliation before enabling writes; preserve the existing commit-before-adapter claim and avoid automatic repeat after interruption.
 - [x] Add one-use, short-lived execution capability bound to the approved proposal and execution. API and MCP independently validate UID, resource version, bad/good template hashes, expiry, and scope. Grant Kubernetes patch only on the sample Deployment through a restricted Role (`infra/kind/mcp-writer.yaml`, verified by `scripts/check_writer_scope.py`).
 - [x] Record preflight and Kubernetes result. A successful patch means `execution_succeeded`, not recovery. Test stale version, UID/template drift, replay, missing approval, and out-of-scope targets with zero mutation (`apps/mcp/tests/test_restore_guard.py` & `apps/api/tests/test_live_proposals.py` passing).
-- [ ] Execute two full live recovery cycles with `python scripts/smoke_recovery.py` on the owned Kind cluster with `LIVE_EXECUTION_ENABLED=true` to capture `.local/kind/recovery-acceptance.json`.
+- [x] One authenticated, exact approved restore with live rejection, approval expiry, pre/post-approval drift, invalid capability and replay denials. See `scripts/smoke_execution.py` and the approval/execution handoff. Two full verified recovery cycles remain a release gate.
 
 ## Phase 7: independent recovery verdict and complete UI
 

@@ -1,6 +1,6 @@
 # FixProof MVP implementation plan
 
-Updated 2026-10-24 after merging current `main`. This is an **execution plan**, not a claim that the target workflow exists. The repository has a working local scaffold and Phase 2 lifecycle foundation: normalized synthetic investigations/evidence, exact-hash approval decisions, idempotent execution/verification records, append-only audit guards, generated frontend API types, and persisted synthetic cost reports. The default operations adapter fails unavailable without mutating infrastructure. See [repository assessment](INITIAL_ASSESSMENT.md) and [Phase 2 handoff](PHASE_2_HANDOFF.md). The release target is the single [unhealthy sample application incident](INITIAL_INCIDENT.md).
+This is an **execution plan**, not a claim that the target workflow exists. The repository has a working local scaffold and Phase 2 lifecycle foundation: normalized synthetic investigations/evidence, exact-hash approval decisions, idempotent execution/verification records, append-only audit guards, generated frontend API types, and persisted synthetic cost reports. The default operations adapter fails unavailable without mutating infrastructure. See [repository assessment](INITIAL_ASSESSMENT.md) and [Phase 2 handoff](PHASE_2_HANDOFF.md). The release target is the single [unhealthy sample application incident](INITIAL_INCIDENT.md).
 
 ## Delivery rule
 
@@ -16,10 +16,10 @@ Build one vertical path through real components. Each phase ends with a command 
 | 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Ready for review: two live fault/reset cycles passed; see KIND_FIXTURE_HANDOFF.md |
 | 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Local acceptance passed: PostgreSQL, live kind/session/restart and browser tests; CI/review pending; see LIVE_INVESTIGATION_HANDOFF.md |
 | 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Implemented and locally accepted; CI/review pending; see LIVE_INVESTIGATION_HANDOFF.md |
-| 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Structured live reasoning accepted; retained-record ChatOps and exact proposal integration remain |
-| 5. Proposal and approval | 2, 4 | Operator approves an immutable exact proposal; no infrastructure action yet | Not started |
-| 6. Guarded execution | 1, 3, 5 | One approved restore action patches only the sample Deployment | Not started |
-| 7. Recovery verification and UI | 6 | Fresh rollout, health, and metrics decide verified/failed/inconclusive | Not started |
+| 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Quality tests and fresh live investigation passed; see INVESTIGATION_QUALITY_HANDOFF.md. Grounded ChatOps explicitly deferred; CI/review pending |
+| 5. Proposal and approval | 2, 4 | Operator approves an immutable exact proposal; no infrastructure action yet | Local proposal, approval, rejection, expiry and drift acceptance passed; CI/review pending; see APPROVAL_EXECUTION_HANDOFF.md |
+| 6. Guarded execution | 1, 3, 5 | One approved restore action patches only the sample Deployment | One live guarded restore and zero-mutation denials passed; CI/review pending; see APPROVAL_EXECUTION_HANDOFF.md |
+| 7. Recovery verification and UI | 6 | Fresh rollout, health, and metrics decide verified/failed/inconclusive | Implementation present; live measured verdict and final UI acceptance pending |
 | 8. Release rehearsal | 0–7 | Clean setup and repeated positive/negative runs pass the runbook | Not started |
 
 The phases are ordered for a solo developer. With several contributors, sample workload, API migration design, and UI shell can proceed in parallel after Phase 0, but they must meet at the contract gates below. [Team ownership](TEAM_OWNERSHIP.md) is a coordination map, not an assertion that anyone has completed a stream.

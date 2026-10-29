@@ -217,7 +217,11 @@ def run_once(factory=SessionLocal, reader=None):
     if sufficient and settings.analysis_enabled:
         try:
             analysis = reader.analyze(work["incident_id"], work["target_uid"], context, gaps)
-            analysis = AnalysisResult.model_validate(analysis).model_dump(mode="json")
+            validated = AnalysisResult.model_validate(analysis)
+            validated.analysis.validate_advisory()
+            analysis = validated.model_dump(mode="json")
+            if analysis["analysis"]["gaps"]:
+                gaps.append("model:reported_gaps")
             ids = {item["id"] for item in context}
             hypotheses = analysis["analysis"]["hypotheses"]
             if not hypotheses or any(

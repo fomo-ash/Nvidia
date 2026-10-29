@@ -64,8 +64,10 @@ class Observation(BaseModel):
             if self.mode == "live":
                 expected = {
                     "rollout_available": ("kubernetes:deployment", "gte", None),
-                    **{f"health_probe_{index}": ("direct:probe", "eq", 200)
-                       for index in range(1, 4)},
+                    **{
+                        f"health_probe_{index}": ("direct:probe", "eq", 200)
+                        for index in range(1, 4)
+                    },
                     "work_requests": ("prometheus", "gte", 20),
                     "http_5xx_ratio": ("prometheus", "lt", 0.01),
                 }
@@ -166,7 +168,9 @@ class LiveKindAdapter:
                 {
                     "uid": execution.parameters["uid"],
                     "execution_id": str(execution.id),
-                    "desired_good_template_hash": execution.parameters["desired_good_template_hash"],
+                    "desired_good_template_hash": execution.parameters[
+                        "desired_good_template_hash"
+                    ],
                     "after": utc(execution.completed_at).isoformat(),
                 },
                 timeout=130,
@@ -211,6 +215,12 @@ def execute(db, actor, key, recommendation_id, expected_hash, adapter):
         raise HTTPException(409, "No current exact approval record authorizes this action")
     if db.scalar(select(Execution.id).where(Execution.recommendation_id == item.id)):
         raise HTTPException(409, "This recommendation already has an execution attempt")
+    if incident.mode == "live" and db.scalar(
+        select(Execution.id)
+        .join(Recommendation, Execution.recommendation_id == Recommendation.id)
+        .where(Recommendation.incident_id == item.incident_id, Execution.status == "pending")
+    ):
+        raise HTTPException(409, "An unresolved execution already exists for this incident")
     parameters = dict(item.parameters)
     if incident.mode == "live":
         baseline = db.get(TrustedBaseline, UUID(parameters["trusted_baseline_id"]))
@@ -335,18 +345,9 @@ def reconcile(db, execution_id, actor):
             "revision": observed.get("revision"),
         }
         item.status = "executed"
-    elif (
-        observed.get("execution_id") != str(execution.id)
-        and observed.get("template_hash") == params["expected_bad_template_hash"]
-        and observed.get("resource_version") == params["resource_version"]
-    ):
-        execution.status = "failed"
-        execution.result = {
-            "reason": "No patch observed at the original resource version",
-            "mutation_performed": False,
-        }
-        item.status = "execution_failed"
     else:
+        # An unchanged or drifted target does not prove the original request cannot
+        # still complete. Keep the durable claim and block further writes.
         return execution
     execution.completed_at = now()
     audit(

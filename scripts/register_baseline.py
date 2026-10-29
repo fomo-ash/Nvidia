@@ -29,10 +29,13 @@ def post(opener, path, body, headers=None):
 def main():
     current = fixture.deployment()
     baseline = fixture.load_baseline(current)
-    values = dict(re.findall(
-        r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$",
-        (fixture.ROOT / ".env").read_text(), re.M,
-    ))
+    values = dict(
+        re.findall(
+            r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$",
+            (fixture.ROOT / ".env").read_text(),
+            re.M,
+        )
+    )
     secret = values.get("OPERATOR_SECRET")
     if not secret:
         raise RuntimeError("Configure the local operator secret first")
@@ -40,11 +43,16 @@ def main():
         urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
     )
     csrf = post(opener, "/session", {"secret": secret})["csrf_token"]
-    result = post(opener, "/trusted-baselines", {
-        "target_uid": baseline["uid"],
-        "template": baseline["template"],
-        "template_hash": baseline["template_hash"],
-    }, {"X-CSRF-Token": csrf, "Idempotency-Key": str(uuid4())})
+    result = post(
+        opener,
+        "/trusted-baselines",
+        {
+            "target_uid": baseline["uid"],
+            "template": baseline["template"],
+            "template_hash": baseline["template_hash"],
+        },
+        {"X-CSRF-Token": csrf, "Idempotency-Key": str(uuid4())},
+    )
     print("Registered trusted template for UID " + result["target_uid"])
     print("Template SHA-256: " + result["template_hash"])
 
