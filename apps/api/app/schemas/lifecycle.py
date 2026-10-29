@@ -6,6 +6,14 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.api import CostSummaryOut, EvidenceOut, RecordOut
+from app.schemas.analysis import AnalysisResult
+
+
+class InvestigationResultOut(BaseModel):
+    stage: str | None = None
+    assessment: str | None = None
+    gaps: list[str] = Field(default_factory=list)
+    analysis: AnalysisResult | None = None
 
 
 class InvestigationOut(RecordOut):
@@ -13,9 +21,11 @@ class InvestigationOut(RecordOut):
     id: UUID
     incident_id: UUID
     provider: str
-    mode: Literal["synthetic"]
-    status: Literal["completed", "failed"]
+    mode: Literal["synthetic", "live"]
+    status: Literal["collecting", "completed", "needs_review", "failed"]
     summary: str
+    request_id: UUID | None = None
+    result: InvestigationResultOut = Field(default_factory=InvestigationResultOut)
     created_at: datetime
 
 
@@ -25,6 +35,13 @@ class EvidenceItemOut(EvidenceOut):
     investigation_id: UUID
     content_hash: str
     trust_label: Literal["untrusted"]
+    mode: Literal["synthetic", "live"]
+    transport_id: str | None = None
+    transport_hash: str | None = None
+    target_uid: str | None = None
+    raw_data: dict = Field(default_factory=dict)
+    collection_error: str | None = None
+    redacted: bool = False
 
     @field_validator("observed_at")
     @classmethod
@@ -124,3 +141,31 @@ class IntegrationOut(BaseModel):
     mode: Literal["synthetic", "local", "external"]
     capabilities: list[str]
     detail: str
+
+
+class IncidentTargetOut(RecordOut):
+    target_id: str
+    cluster: str
+    namespace: str
+    kind: Literal["Deployment"] = "Deployment"
+    name: str
+    uid: str | None
+
+
+class IncidentTriggerOut(RecordOut):
+    id: UUID
+    source: str
+    reporter: str
+    summary: str
+    note: str | None
+    reported_at: datetime
+
+
+class InvestigationRequestOut(RecordOut):
+    id: UUID
+    trigger_id: UUID
+    status: str
+    created_at: datetime
+    claimed_at: datetime | None = None
+    attempts: int = 0
+    finished_at: datetime | None = None

@@ -50,3 +50,11 @@ Keep `0001`–`0003` and their historical data intact. Add incremental migration
 4. **Real action and measurement:** extend `executions` with preflight snapshot and MCP action metadata, and `verification_results` with fresh rollout, probe, metric window, thresholds, values, and reason. Preserve the current pending-claim/idempotency model. Reconcile interrupted pending operations explicitly; a retry must not repeat an unknown infrastructure effect.
 
 The model never supplies the trusted known-good template. Store its provenance and hash during bootstrap before fault injection. Audit transitions remain append-only, and real evidence retains source and UTC observation times so every recovery verdict can be reconstructed.
+
+## Migration 0005: durable live evidence
+
+`investigation_requests` gains claimed_at, claim_token, attempts and finished_at. `investigations` gains nullable request_id and JSON result, and permits collecting/needs_review alongside completed/failed. `evidence_items` gains nullable transport_id/transport_hash/target_uid/collection_error, bounded raw_data and a redacted marker; all evidence remains untrusted to inference. Legacy rows receive empty/default metadata without invented source observations. PostgreSQL incident trigger TRUNCATE is now blocked.
+
+A worker commits its claim before external reads and uses the token/lease for every source commit and finalization. Expired read-only attempts are retained as failed runs and retried at most three times; a stale worker cannot overwrite its successor. Only one active request per incident is claimed under PostgreSQL row locks. Standalone SQLite supports local single-worker tests; it is not the production concurrency proof.
+
+Downgrade preserves core legacy incident/recommendation history but drops new provenance, claim and result fields and maps collecting/needs_review investigations to failed. Back up before downgrade if live evidence or findings must be retained; do not downgrade the working application merely to reset the fixture. Acceptance tests use an isolated disposable database.

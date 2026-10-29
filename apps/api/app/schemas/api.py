@@ -150,7 +150,7 @@ class CostSummaryOut(BaseModel):
 class DashboardOut(BaseModel):
     open_incidents: int
     cost_autopsy: CostSummaryOut
-    mode: Literal["deterministic-demo"]
+    mode: Literal["deterministic-demo", "local-operations"]
 
 
 class ErrorOut(BaseModel):

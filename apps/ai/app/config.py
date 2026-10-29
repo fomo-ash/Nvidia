@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/fixproof"
     SYNC_DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/fixproof"
 
+    SERVICE_AUTH_TOKEN: str = ""
+
     # Upstream Services
     MCP_SERVER_URL: str = "http://mcp:8002"
     API_BASE_URL: str = "http://api:8000"

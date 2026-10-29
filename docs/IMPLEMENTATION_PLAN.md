@@ -14,9 +14,9 @@ Build one vertical path through real components. Each phase ends with a command 
 |---|---|---|---|
 | 0. Confirm foundation | Current `main` | Full five-service Compose and Grafana smoke path verified; existing checks remain green | Ready for review: full-stack smoke and container checks passed; see KIND_FIXTURE_HANDOFF.md |
 | 1. Observable kind fault | 0 | Healthy → deliberate config fault → healthy reset, with sample metrics in Prometheus | Ready for review: two live fault/reset cycles passed; see KIND_FIXTURE_HANDOFF.md |
-| 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Implemented locally; PostgreSQL and live kind acceptance remain; see PHASE_2_INTAKE_HANDOFF.md |
-| 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Not started |
-| 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Not started |
+| 2. Incident intake | 1 | Authenticated operator reports the exact workload; one durable incident/trigger queues investigation | Local acceptance passed: PostgreSQL, live kind/session/restart and browser tests; CI/review pending; see LIVE_INVESTIGATION_HANDOFF.md |
+| 3. MCP evidence | 1–2 | One restricted MCP service returns and persists real metric/Kubernetes evidence | Implemented and locally accepted; CI/review pending; see LIVE_INVESTIGATION_HANDOFF.md |
+| 4. Nemotron investigation | 3 | A live Nebius call returns a validated hypothesis and cited proposal | Structured live reasoning accepted; retained-record ChatOps and exact proposal integration remain |
 | 5. Proposal and approval | 2, 4 | Operator approves an immutable exact proposal; no infrastructure action yet | Not started |
 | 6. Guarded execution | 1, 3, 5 | One approved restore action patches only the sample Deployment | Not started |
 | 7. Recovery verification and UI | 6 | Fresh rollout, health, and metrics decide verified/failed/inconclusive | Not started |
@@ -61,12 +61,12 @@ Implemented and locally accepted on `feat/kind-observable-fault`: two healthy �
 
 ## Phase 3 — collect real evidence through one MCP server
 
-A read-only MCP scaffold now exists; this phase remains incomplete until real kind connectivity and API evidence persistence pass. AI run isolation and timestamp checks do not complete that integration.
+The read-only collection path now has live kind connectivity and API evidence persistence through a durable worker. Positive and disabled-source acceptance passed. See [live investigation handoff](LIVE_INVESTIGATION_HANDOFF.md); CI/review remain open.
 
 **Implement**
 
 - Add `apps/mcp/` as the sole infrastructure tool server. Give it a scoped Kubernetes ServiceAccount/Role for the sample namespace and read-only Prometheus access. API and AI are permitted bounded read clients; only the API may request future mutations with an independently validated execution capability. See [agentic authority contract](agentic_architecture/README.md). Do not mount a cluster-admin kubeconfig or Docker socket.
-- Bootstrap a restricted kubeconfig whose API-server address is reachable from inside the MCP container; refresh expiring credentials. On Windows Docker Desktop, validate the published kind endpoint via `host.docker.internal`; document the Linux host-gateway equivalent.
+- Provision a scoped ServiceAccount token and CA with `scripts/configure_investigation.py`, never an application mount of the developer kubeconfig. MCP reaches the verified TLS API through the private kind Docker network. Refresh its 24-hour token. macOS acceptance is recorded; other supported hosts need their own rehearsal.
 - Implement bounded tools for approved Prometheus query templates, Deployment/ReplicaSet status, pods, events, and capped pod logs. Restrict namespace, target, time range, result size, and timeout. Mutation remains disabled.
 - Extend the existing `investigations` and `evidence_items` schema and APIs. They already retain normalized synthetic source/time/hash/trust data; add the target UID, observation window, redaction marker, bounded real payload, and per-source collection error needed for this incident. Keep existing generated contracts in sync. Missing sources are visible gaps, never generated facts.
 

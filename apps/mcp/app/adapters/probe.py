@@ -17,7 +17,7 @@ class ProbeClient:
                     "url": url,
                     "status_code": res.status_code,
                     "latency_ms": latency_ms,
-                    "is_healthy": res.status_code < 400,
+                    "is_healthy": res.status_code == 200,
                     "body_snippet": res.text[:200] if res.text else "",
                 }
         except Exception as e:

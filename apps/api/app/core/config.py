@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     session_signing_key: str = ""
     sample_target_uid: str = ""
     sample_cluster_id: str = "local-kind"
+    mcp_server_url: str = "http://mcp:8002"
+    ai_service_url: str = "http://ai:8001"
+    service_auth_token: str = ""
+    investigation_lease_seconds: int = Field(default=180, ge=120, le=3600)
+    analysis_enabled: bool = False
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

@@ -62,3 +62,9 @@ flowchart LR
 6. Execution and verification remain separate records. Fresh rollout availability, three post-action `/healthz` probes, and a 60-second Prometheus window with sufficient traffic decide verified, failed, or inconclusive. No model statement or accepted patch alone closes the incident.
 
 Compose runs web/API/database/Prometheus and the planned MCP service; kind runs the sample workload. The bootstrap must prove Compose-to-kind API and metrics connectivity **from inside containers**. Use a namespace-scoped ServiceAccount credential, never the host's cluster-admin kubeconfig or Docker socket. Nebius inference is the sole required remote service for this MVP and needs an internet connection. See [implementation plan](IMPLEMENTATION_PLAN.md) and [security](SECURITY.md).
+
+## Integrated read-only investigation path (2026-10-29)
+
+Authenticated intake now queues a durable request consumed by the API-package worker. The worker commits a lease, validates the exact Deployment UID, persists bounded/redacted MCP source snapshots under canonical API UUIDs, then invokes the stateless AI `/analyze` endpoint. Structured findings and provider/model metadata are committed to the same durable investigation. Leases serialize work per incident and prevent stale workers from committing after takeover. Each read-only attempt retains its own run; no product mutation is enabled.
+
+This path deliberately has one durable authority: API PostgreSQL records. The older LangGraph MemorySaver/ChatOps endpoints remain advisory scaffolds and are not used as a competing durable workflow or approval store. Jev/Laya remains optional advisory policy. [Measured acceptance and remaining gates](LIVE_INVESTIGATION_HANDOFF.md).

@@ -62,7 +62,9 @@ async def generate_causal_analysis(
     if mode == "synthetic":
         return _synthetic_causal_reasoning(evidence)
     if not live_model_available():
-        raise RuntimeError(f"{settings.LLM_PROVIDER} credentials are unavailable for live investigation")
+        raise RuntimeError(
+            f"{settings.LLM_PROVIDER} credentials are unavailable for live investigation"
+        )
 
     llm = get_nemotron_llm()
     user_prompt = CAUSAL_REASONING_USER_TEMPLATE.format(
@@ -151,9 +153,9 @@ def _parse_or_ground_hypotheses(
     hypotheses = [
         Hypothesis(
             cause=response_text[:300].strip(),
-            confidence=0.92,
+            confidence=0.0,
             supporting_evidence_ids=matched_ids,
-            is_root_cause=True,
+            is_root_cause=False,
         )
     ]
     summary = response_text[:200].strip()

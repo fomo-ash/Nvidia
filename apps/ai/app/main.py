@@ -1,6 +1,10 @@
 """FastAPI application entrypoint for FixProof AI Agent Service."""
 
+import logging
 from uuid import uuid4
+
+from app.llm.retained import AnalyzeRequest, analyze_retained
+from app.schemas.analysis import AnalysisResult
 
 from fastapi import FastAPI, HTTPException
 from app.chat.agent import execute_chat
@@ -18,6 +22,23 @@ app = FastAPI(
     description="SRE reasoning service with bounded MCP evidence and a selected Groq or Nebius model.",
     version="0.1.0",
 )
+
+
+@app.middleware("http")
+async def service_auth(request, call_next):
+    import hmac
+    from fastapi.responses import JSONResponse
+    from app.config import settings
+
+    if request.url.path != "/health":
+        key = settings.SERVICE_AUTH_TOKEN
+        if len(key) < 32:
+            return JSONResponse(
+                {"detail": "Service authentication is not configured"}, status_code=503
+            )
+        if not hmac.compare_digest(request.headers.get("authorization", ""), "Bearer " + key):
+            return JSONResponse({"detail": "Service authentication required"}, status_code=401)
+    return await call_next(request)
 
 
 @app.get("/health", tags=["System"])
@@ -96,3 +117,14 @@ async def chat_with_incident(body: ChatRequest) -> ChatResponse:
         citations=citations,
         session_id=body.session_id,
     )
+
+
+@app.post("/analyze", response_model=AnalysisResult)
+async def analyze_stored_evidence(body: AnalyzeRequest):
+    try:
+        return await analyze_retained(body)
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Retained analysis failed (%s)", type(exc).__name__)
+        raise HTTPException(
+            503, "Structured model analysis unavailable; retained evidence requires manual review"
+        ) from None

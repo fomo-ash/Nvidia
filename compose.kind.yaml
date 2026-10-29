@@ -6,8 +6,32 @@ services:
     networks: [fixproof, kind-fixture]
   mcp:
     environment:
+      KUBERNETES_API_URL: https://fixproof-demo-control-plane:6443
+      KUBERNETES_CA_CERT_PATH: /run/fixproof/ca.crt
+      KUBERNETES_TOKEN_PATH: /run/fixproof/token
+      KUBERNETES_TARGET_UID: ${SAMPLE_TARGET_UID:?run configure_investigation.py}
       SAMPLE_APP_HEALTH_URL: http://fixproof-demo-control-plane:30080/healthz
+    volumes:
+      - ./.local/kind/reader/ca.crt:/run/fixproof/ca.crt:ro
+      - ./.local/kind/reader/token:/run/fixproof/token:ro
     networks: [fixproof, kind-fixture]
+  worker:
+    build: { context: ./apps/api, target: runtime }
+    command: [python, -m, app.worker]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      LOCAL_DEMO_ENABLED: "false"
+      SERVICE_AUTH_TOKEN: ${SERVICE_AUTH_TOKEN:?run configure_investigation.py}
+      MCP_SERVER_URL: http://mcp:8002
+      AI_SERVICE_URL: http://ai:8001
+      SAMPLE_TARGET_UID: ${SAMPLE_TARGET_UID:?run configure_investigation.py}
+      ANALYSIS_ENABLED: ${ANALYSIS_ENABLED:-false}
+    depends_on:
+      api: { condition: service_healthy }
+      mcp: { condition: service_healthy }
+      ai: { condition: service_healthy }
+    networks: [fixproof]
+    restart: unless-stopped
 networks:
   kind-fixture:
     external: true

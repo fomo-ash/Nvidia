@@ -217,9 +217,7 @@ class JevDecisionEngine:
             headers = {"Content-Type": "application/json"}
             if settings.LAYA_API_KEY:
                 headers["Authorization"] = f"Bearer {settings.LAYA_API_KEY}"
-            raw_answers = await self._post_systemone(
-                self._get_laya_endpoint(), headers, payload
-            )
+            raw_answers = await self._post_systemone(self._get_laya_endpoint(), headers, payload)
             parsed = self._validate_answers(raw_answers, schema)
             if parsed is not None:
                 return "System-1 compatible service", parsed
@@ -278,9 +276,7 @@ class JevDecisionEngine:
         questions = {
             "is_sufficient": {
                 "type": "noul",
-                "instructions": (
-                    "Is the accumulated telemetry sufficient to isolate root cause?"
-                ),
+                "instructions": ("Is the accumulated telemetry sufficient to isolate root cause?"),
             },
             "missing_source": {
                 "type": "choice",

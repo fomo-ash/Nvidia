@@ -38,7 +38,7 @@ def login(payload: LoginRequest, response: Response, request: Request):
         raise HTTPException(503, "Local operator login is not configured")
     if request.headers.get("origin") not in settings.cors_origins:
         raise HTTPException(403, "Allowed browser Origin required")
-    if not hmac.compare_digest(payload.secret, settings.operator_secret):
+    if not hmac.compare_digest(payload.secret.encode(), settings.operator_secret.encode()):
         raise HTTPException(401, "Invalid operator secret")
     token, csrf = issue_session()
     response.set_cookie(

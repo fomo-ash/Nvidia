@@ -37,9 +37,9 @@ flowchart LR
 
 ## Required integration contract
 
-Before an investigation becomes reviewable, the API must persist the source snapshots and their target/time metadata, validate the AI output against those retained IDs, and construct an immutable proposal using the trusted local baseline. This persistence bridge is not implemented. AI checkpoints are orchestration state; they are never a second approval database.
+Before an investigation becomes reviewable, the API must persist the source snapshots and their target/time metadata, validate the AI output against those retained IDs, and construct an immutable proposal using the trusted local baseline. The read-only persistence bridge is now implemented and locally accepted; see [live investigation handoff](../LIVE_INVESTIGATION_HANDOFF.md). Exact live proposals remain the next gate. AI checkpoints are orchestration state; they are never a second approval database.
 
-A fresh investigation has a server-generated run UUID distinct from its incident ID. Retries/resumption will require an explicit durable job and idempotency contract; reusing the incident ID as a thread must not silently reuse observations. In-memory runs currently disappear on service restart, and chat returns 404 for an unavailable run.
+A fresh investigation has a server-generated run UUID distinct from its incident ID. The integrated worker has an explicit leased durable job and idempotent persistence contract; reusing the incident ID as a thread must not silently reuse observations. The separate standalone MemorySaver runs still disappear on service restart and their chat returns 404; integrated API runs and evidence survive restart. The integrated path uses the API database as its sole durable orchestration authority.
 
 Approval remains an API transaction. A future graph interrupt may wait for notification of that transaction, but resuming it is not approval. After any pause, execution revalidates the durable approval, current proposal, expiry and Kubernetes preconditions. Worker retries must not repeat an unknown mutation.
 
