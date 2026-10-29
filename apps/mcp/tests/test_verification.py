@@ -65,7 +65,10 @@ async def test_fresh_recovery_passes(observed):
     assert result["status"] == "passed"
     assert result["mode"] == "live"
     assert len(result["measurements"]) == 6
-    assert all(datetime.fromisoformat(row["observed_at"]) >= request.after for row in result["measurements"])
+    assert all(
+        datetime.fromisoformat(row["observed_at"]) >= request.after
+        for row in result["measurements"]
+    )
 
 
 @pytest.mark.asyncio

@@ -24,10 +24,14 @@ def main():
     env = fixture.ROOT / ".env"
     existing = dict(re.findall(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", env.read_text(), re.M))
     values = {"LIVE_EXECUTION_ENABLED": "false"}
-    if not existing.get("EXECUTION_SIGNING_KEY") or existing["EXECUTION_SIGNING_KEY"].startswith("change-me"):
+    if not existing.get("EXECUTION_SIGNING_KEY") or existing["EXECUTION_SIGNING_KEY"].startswith(
+        "change-me"
+    ):
         values["EXECUTION_SIGNING_KEY"] = secrets.token_urlsafe(48)
     update_environment(env, values)
-    print("Scoped writer token and execution signing key configured; live execution remains disabled.")
+    print(
+        "Scoped writer token and execution signing key configured; live execution remains disabled."
+    )
 
 
 if __name__ == "__main__":

@@ -78,3 +78,37 @@ async def test_redirect_is_not_functional_health(monkeypatch):
     )
     result = await probe.ProbeClient().check_endpoint("http://sample.test/healthz")
     assert result["status_code"] == 302 and result["is_healthy"] is False
+
+
+@pytest.mark.asyncio
+async def test_investigation_keeps_functional_health_separate_from_current_readiness(monkeypatch):
+    from app.tools import health
+
+    calls = []
+    monkeypatch.setattr(settings, "SAMPLE_APP_HEALTH_URL", "http://sample.test:8080/healthz")
+
+    async def probe(self, url):
+        calls.append(url)
+        status = 500 if url.endswith("/healthz") else 200
+        return {"url": url, "status_code": status, "is_healthy": status == 200, "latency_ms": 1}
+
+    monkeypatch.setattr(health.ProbeClient, "check_endpoint", probe)
+    result = await health.check_service_health(settings.SAMPLE_APP_HEALTH_URL)
+    assert calls == ["http://sample.test:8080/healthz", "http://sample.test:8080/readyz"]
+    assert result.raw_data["status_code"] == 500 and result.raw_data["is_healthy"] is False
+    assert result.raw_data["readiness"]["status_code"] == 200
+    with pytest.raises(ValueError):
+        await health.check_service_health("http://another-target.test/healthz")
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_unavailable_functional_probe_is_a_source_failure(monkeypatch):
+    from app.tools import health
+
+    async def unavailable(self, url):
+        return {"status_code": 0, "is_healthy": False}
+
+    monkeypatch.setattr(health.ProbeClient, "check_endpoint", unavailable)
+    with pytest.raises(ValueError, match="unavailable"):
+        await health.check_service_health(settings.SAMPLE_APP_HEALTH_URL)

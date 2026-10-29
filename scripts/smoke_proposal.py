@@ -36,7 +36,9 @@ def main():
         with response:
             body = json.load(response)
             if response.status not in expected:
-                raise RuntimeError(f"Unexpected HTTP {response.status} for {path}: {body.get('detail', '')}")
+                raise RuntimeError(
+                    f"Unexpected HTTP {response.status} for {path}: {body.get('detail', '')}"
+                )
             return body
 
     fixture.change(True)
@@ -47,10 +49,17 @@ def main():
         assert target["uid"] == physical["deployment_uid"]
         baseline = request("/api/v1/trusted-baselines/current")
         assert baseline["target_uid"] == target["uid"]
-        report = request("/api/v1/incidents", {
-            "target_id": target["target_id"], "target_uid": target["uid"],
-            "symptom": "http_5xx_spike", "summary": "Exact proposal acceptance: live 5xx",
-        }, "proposal-smoke-" + secrets.token_hex(12), expected=(200, 201))
+        report = request(
+            "/api/v1/incidents",
+            {
+                "target_id": target["target_id"],
+                "target_uid": target["uid"],
+                "symptom": "http_5xx_spike",
+                "summary": "Exact proposal acceptance: live 5xx",
+            },
+            "proposal-smoke-" + secrets.token_hex(12),
+            expected=(200, 201),
+        )
         incident_id, job_id = report["incident_id"], report["investigation_request_id"]
         deadline = time.monotonic() + 150
         run = None
@@ -62,29 +71,54 @@ def main():
             time.sleep(2)
         assert run and run["status"] == "completed", "Live analysis unavailable"
         assert run["result"]["assessment"] == "active"
-        assert run["result"]["analysis"]["analysis"]["advisory_action"] == "restore_known_good_template"
+        assert (
+            run["result"]["analysis"]["analysis"]["advisory_action"]
+            == "restore_known_good_template"
+        )
         evidence = request(f"/api/v1/investigations/{run['id']}/evidence")
         assert len(evidence) == 5 and all(not row["collection_error"] for row in evidence)
-        proposal = request(f"/api/v1/incidents/{incident_id}/proposals", {
-            "investigation_id": run["id"],
-        }, "proposal-create-" + secrets.token_hex(12), expected=(201,))
+        proposal = request(
+            f"/api/v1/incidents/{incident_id}/proposals",
+            {
+                "investigation_id": run["id"],
+            },
+            "proposal-create-" + secrets.token_hex(12),
+            expected=(201,),
+        )
         assert proposal["parameters"]["desired_good_template_hash"] == baseline["template_hash"]
         assert len(proposal["evidence"]) == len(evidence)
         review = f"/api/v1/recommendations/{proposal['id']}/approve"
-        request(review, {"proposal_hash": "0" * 64}, "wrong-hash-" + secrets.token_hex(12), expected=(409,))
-        approved = request(review, {"proposal_hash": proposal["proposal_hash"]},
-                           "exact-approval-" + secrets.token_hex(12))
+        request(
+            review,
+            {"proposal_hash": "0" * 64},
+            "wrong-hash-" + secrets.token_hex(12),
+            expected=(409,),
+        )
+        approved = request(
+            review,
+            {"proposal_hash": proposal["proposal_hash"]},
+            "exact-approval-" + secrets.token_hex(12),
+        )
         assert approved["status"] == "approved"
-        request(f"/api/v1/recommendations/{proposal['id']}/execute",
-                {"proposal_hash": proposal["proposal_hash"]},
-                "blocked-execution-" + secrets.token_hex(12), expected=(409,))
+        request(
+            f"/api/v1/recommendations/{proposal['id']}/execute",
+            {"proposal_hash": proposal["proposal_hash"]},
+            "blocked-execution-" + secrets.token_hex(12),
+            expected=(409,),
+        )
         unchanged = fixture.deployment()
-        assert fixture.template_hash(unchanged["spec"]["template"]) == proposal["parameters"]["expected_bad_template_hash"]
+        assert (
+            fixture.template_hash(unchanged["spec"]["template"])
+            == proposal["parameters"]["expected_bad_template_hash"]
+        )
         record = {
-            "incident_id": incident_id, "investigation_id": run["id"],
+            "incident_id": incident_id,
+            "investigation_id": run["id"],
             "evidence_ids": [row["id"] for row in evidence],
-            "proposal_id": proposal["id"], "proposal_hash": proposal["proposal_hash"],
-            "approval_status": approved["status"], "live_execution_denied": True,
+            "proposal_id": proposal["id"],
+            "proposal_hash": proposal["proposal_hash"],
+            "approval_status": approved["status"],
+            "live_execution_denied": True,
             "baseline_hash": baseline["template_hash"],
             "observed_bad_hash": proposal["parameters"]["expected_bad_template_hash"],
             "physical": physical,
