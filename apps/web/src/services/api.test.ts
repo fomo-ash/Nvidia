@@ -22,5 +22,5 @@ it("forwards cancellation to fetch", async () => {
   const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
   vi.stubGlobal("fetch", fetch);
   await api("/api/v1/incidents", { signal: controller.signal });
-  expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/v1/incidents"), { signal: controller.signal });
+  expect(fetch).toHaveBeenCalledWith(expect.stringContaining("/api/v1/incidents"), { signal: controller.signal, credentials: "include" });
 });

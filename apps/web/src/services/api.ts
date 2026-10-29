@@ -19,7 +19,7 @@ export async function api<P extends GetPath>(
   path: P,
   options: { signal?: AbortSignal } = {},
 ): Promise<GetResponse<P>> {
-  const response = await fetch(`${base}${path}`, { signal: options.signal });
+  const response = await fetch(`${base}${path}`, { signal: options.signal, credentials: "include" });
   if (!response.ok) {
     let message = `API request failed (${response.status})`;
     try {
