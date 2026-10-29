@@ -23,3 +23,11 @@ test-results/
 .local/
 .DS_Store
 apps/.DS_Stores
+
+generate_plan_pdf.py
+FixProof_Team_Execution_Plan.pdf
+FixProof_Four_Member_Work_Division.pdf
+MEMBER_2_API_DEEP_DIVE.md
+
+4_member_final_plan.pdf
+4_member_final_report.pdf
