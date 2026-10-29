@@ -205,6 +205,34 @@
         "title": "AuditEventOut",
         "type": "object"
       },
+      "BaselineRegistration": {
+        "additionalProperties": false,
+        "properties": {
+          "target_uid": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Target Uid",
+            "type": "string"
+          },
+          "template": {
+            "additionalProperties": true,
+            "title": "Template",
+            "type": "object"
+          },
+          "template_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Template Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_uid",
+          "template",
+          "template_hash"
+        ],
+        "title": "BaselineRegistration",
+        "type": "object"
+      },
       "CostAnalysisCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1392,6 +1420,47 @@
         "title": "InvestigationResultOut",
         "type": "object"
       },
+      "LiveProposalEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "content_hash"
+        ],
+        "title": "LiveProposalEvidence",
+        "type": "object"
+      },
+      "LiveProposalRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "investigation_id": {
+            "format": "uuid",
+            "title": "Investigation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "investigation_id"
+        ],
+        "title": "LiveProposalRequest",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "secret": {
@@ -1532,7 +1601,14 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/EvidenceOut"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/EvidenceOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LiveProposalEvidence"
+                    }
+                  ]
                 },
                 "type": "array"
               },
@@ -1678,6 +1754,56 @@
           "details"
         ],
         "title": "TimelineOut",
+        "type": "object"
+      },
+      "TrustedBaselineOut": {
+        "properties": {
+          "cluster": {
+            "title": "Cluster",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "deployment": {
+            "title": "Deployment",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "registered_by": {
+            "title": "Registered By",
+            "type": "string"
+          },
+          "target_uid": {
+            "title": "Target Uid",
+            "type": "string"
+          },
+          "template_hash": {
+            "title": "Template Hash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "cluster",
+          "namespace",
+          "deployment",
+          "target_uid",
+          "template_hash",
+          "registered_by",
+          "created_at"
+        ],
+        "title": "TrustedBaselineOut",
         "type": "object"
       },
       "ValidationError": {
@@ -2767,6 +2893,106 @@
         "summary": "Execution"
       }
     },
+    "/api/v1/executions/{execution_id}/reconcile": {
+      "post": {
+        "operationId": "reconcile_execution_api_v1_executions__execution_id__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "execution_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Execution Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExecutionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Execution"
+      }
+    },
     "/api/v1/executions/{execution_id}/verification": {
       "get": {
         "operationId": "execution_verification_api_v1_executions__execution_id__verification_get",
@@ -3713,6 +3939,106 @@
           }
         },
         "summary": "Incident Investigations"
+      }
+    },
+    "/api/v1/incidents/{incident_id}/proposals": {
+      "post": {
+        "operationId": "create_live_proposal_api_v1_incidents__incident_id__proposals_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "incident_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Incident Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveProposalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Live Proposal"
       }
     },
     "/api/v1/incidents/{incident_id}/recommendations": {
@@ -4949,6 +5275,154 @@
           }
         },
         "summary": "Login"
+      }
+    },
+    "/api/v1/trusted-baselines": {
+      "post": {
+        "operationId": "register_trusted_baseline_api_v1_trusted_baselines_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BaselineRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedBaselineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Trusted Baseline"
+      }
+    },
+    "/api/v1/trusted-baselines/current": {
+      "get": {
+        "operationId": "current_trusted_baseline_api_v1_trusted_baselines_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedBaselineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        },
+        "summary": "Current Trusted Baseline"
       }
     },
     "/api/v1/verifications/{verification_id}": {

@@ -19,6 +19,7 @@ from app.models.domain import (
     InvestigationRequest,
     Investigation,
     Recommendation,
+    TrustedBaseline,
     VerificationResult,
 )
 from app.schemas.api import (
@@ -33,6 +34,9 @@ from app.schemas.api import (
     ManualIncidentCreate,
     ManualIncidentOut,
     RecommendationOut,
+    BaselineRegistration,
+    TrustedBaselineOut,
+    LiveProposalRequest,
     TimelineOut,
 )
 from app.schemas.lifecycle import (
@@ -52,6 +56,7 @@ from app.schemas.lifecycle import (
 from app.services import cost_analyses as billing
 from app.services import operations
 from app.services import incident_intake
+from app.services import live_proposals
 from app.services import recommendations as workflow
 from app.services.costs import summary as cost_summary
 from app.services.idempotency import perform
@@ -272,6 +277,54 @@ def recommendations(
     )
 
 
+@router.post("/trusted-baselines", response_model=TrustedBaselineOut, status_code=201)
+def register_trusted_baseline(
+    payload: BaselineRegistration, db: Database, actor: Operator, key: RequiredKey
+):
+    return perform(
+        db,
+        actor,
+        key,
+        "/trusted-baselines",
+        payload.model_dump(mode="json"),
+        lambda: live_proposals.register_baseline(db, payload, actor),
+        TrustedBaselineOut,
+        201,
+    )
+
+
+@router.get("/trusted-baselines/current", response_model=TrustedBaselineOut)
+def current_trusted_baseline(db: Database):
+    item = db.scalar(
+        select(TrustedBaseline).where(TrustedBaseline.target_uid == settings.sample_target_uid)
+    )
+    if item is None:
+        raise HTTPException(404, "Trusted baseline not registered")
+    return item
+
+
+@router.post(
+    "/incidents/{incident_id}/proposals", response_model=RecommendationOut, status_code=201
+)
+def create_live_proposal(
+    incident_id: UUID,
+    payload: LiveProposalRequest,
+    db: Database,
+    actor: Operator,
+    key: RequiredKey,
+):
+    return perform(
+        db,
+        actor,
+        key,
+        f"/incidents/{incident_id}/proposals",
+        payload.model_dump(mode="json"),
+        lambda: live_proposals.propose(db, incident_id, payload.investigation_id, actor),
+        RecommendationOut,
+        201,
+    )
+
+
 @router.get("/recommendations/{recommendation_id}", response_model=RecommendationOut)
 def recommendation(recommendation_id: UUID, db: Database):
     return require(db, Recommendation, recommendation_id)
@@ -432,6 +485,25 @@ def executions(
 @router.get("/executions/{execution_id}", response_model=ExecutionOut)
 def execution(execution_id: UUID, db: Database):
     return require(db, Execution, execution_id)
+
+
+@router.post("/executions/{execution_id}/reconcile", response_model=ExecutionOut)
+def reconcile_execution(
+    execution_id: UUID,
+    payload: DecisionRequest,
+    db: Database,
+    actor: Operator,
+    key: RequiredKey,
+):
+    return perform(
+        db,
+        actor,
+        key,
+        f"/executions/{execution_id}/reconcile",
+        {},
+        lambda: operations.reconcile(db, execution_id, actor),
+        ExecutionOut,
+    )
 
 
 @router.post(

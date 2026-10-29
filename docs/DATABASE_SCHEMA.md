@@ -1,5 +1,7 @@
 # Database schema
 
+`trusted_baselines` stores the operator-registered, append-only healthy pod template and SHA-256 for one registered Deployment UID, along with registrar and time. Migration `0006_trusted_baseline` adds the table and database update/delete guards. Live proposal bindings use the existing `recommendations` and `approvals` tables; the proposal JSON includes baseline ID, current UID/resourceVersion, bad/good hashes, analysis hash and retained evidence IDs/hashes.
+
 Alembic owns schema creation. Startup never uses ORM create_all. PostgreSQL is the deployment database; SQLite supports isolated tests and local development.
 
 ## Migration history
