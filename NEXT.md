@@ -1,4 +1,4 @@
-# FixProof: remaining work
+  # FixProof: remaining work
 
 Updated 2026-10-28. This is the actionable continuation of [the MVP implementation plan](docs/IMPLEMENTATION_PLAN.md), based on the current feature branch. It records unfinished work; a passing unit test or UI message is not a live recovery result.
 
