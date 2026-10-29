@@ -58,3 +58,9 @@ uv sync --project apps/mcp --frozen --extra dev
 Use the same service directories for `ruff check app tests` and `ruff format --check app tests`. Intentional dependency updates regenerate the relevant lockfile and rerun that service's checks. Runtime Docker images install the frozen runtime dependencies; development targets add the locked test dependencies.
 
 These are internal scaffold endpoints, not the API's generated public contract. `POST /investigate` now returns a fresh `investigation_id`; `POST /chat` requires that ID together with its incident ID. Old clients that send only an incident must be updated. Evidence envelopes now bind IDs and observation timestamps into their hashes, so AI and MCP must be deployed together. Older cached envelopes are rejected. See the [architecture contract](agentic_architecture/README.md) for integration gates and current limits.
+
+## Live investigation acceptance
+
+Use [the live investigation handoff](LIVE_INVESTIGATION_HANDOFF.md) for scoped-reader bootstrap, operator session setup and the kind overlay. The worker runs only with the overlay; base synthetic smoke remains a separate mode. CI explicitly sets `LOCAL_DEMO_ENABLED=true` for its synthetic Docker smoke. Host live acceptance uses false and never synthesizes evidence or model results.
+
+`python3.12 scripts/smoke_investigation.py` runs an actual fault/report/model/restart check and resets the owned sample in a finally block. `PLAYWRIGHT_CHANNEL=chrome pnpm test:e2e` uses installed Chrome; omit the channel after installing Playwright Chromium. These live tests require the prepared fixture, running overlay stack and local credentials. Browser traces/screenshots are disabled and generated artifacts are ignored. Unit/component tests remain credential-free.

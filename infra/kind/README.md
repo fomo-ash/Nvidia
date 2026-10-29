@@ -61,3 +61,9 @@ ruff format --check apps/sample scripts/kind_fixture.py tests
 ```
 
 These tests exercise the HTTP failure contract and fixture safety policy without a cluster. CI runs them and builds the sample image; live two-cycle acceptance is a separate local gate.
+
+## Scoped application reader
+
+After `up`, run `python3.12 scripts/configure_investigation.py`, then start the base + kind overlay. It provisions only the sample namespace read Role and a 24-hour ServiceAccount token; no Kubernetes writes are granted. Repeat on token expiry or cluster recreation and recreate the overlay services. Only MCP mounts the generated token and CA, never the developer kubeconfig. Operator/session/service secrets are generated only when missing and existing model credentials are preserved.
+
+The overlay now includes the durable investigation worker. See [live acceptance](../../docs/LIVE_INVESTIGATION_HANDOFF.md). Its model result remains advisory and does not enable the restore tool or complete product recovery verification.
