@@ -22,6 +22,7 @@ def database(tmp_path, monkeypatch):
     if parsed.get_backend_name() != "sqlite" and not (parsed.database or "").endswith("_test"):
         raise ValueError("TEST_DATABASE_URL must name a disposable database ending in _test")
     monkeypatch.setattr(settings, "database_url", url)
+    monkeypatch.setattr(settings, "local_demo_enabled", True)
     root = Path(__file__).resolve().parents[1]
     config = Config(str(root / "alembic.ini"))
     config.set_main_option("script_location", str(root / "alembic"))

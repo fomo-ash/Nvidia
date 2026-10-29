@@ -1,4 +1,4 @@
-# FixProof: remaining work
+  # FixProof: remaining work
 
 The current sequential implementation and observed checks are in [the recovery handoff](docs/SEQUENTIAL_RECOVERY_HANDOFF.md). Scoped execution and independent verification are implemented behind an opt-in overlay. The two live recovery cycles remain unverified because the external model timed out twice; the current stack has the write overlay disabled. The checklist below is a historical plan, with final release gates in the handoff.
 
@@ -35,20 +35,22 @@ The pre-existing Jev/Laya implementation is preserved and advisory. Legacy stand
 - [ ] Ground ChatOps in retained evidence, persist tool reads, validate dynamic citations against the complete set, and limit inference/tool/concurrency budgets. Remove fixed-confidence and fixed-root-cause claims.
 - [x] UI: show measurements, source gaps, and model interpretation in separate sections. On provider failure show `needs_review`; do not create an approvable proposal.
 
-## Phase 5: exact proposal and human review
+## Phase 5: exact proposal and human review (completed locally; CI/review pending)
 
-- [ ] Register the trusted known-good template independently of model output. Bind recommendation version/hash/expiry to exact cluster, namespace, Deployment UID, expected bad template and resource version, desired good template hash, and retained real evidence IDs.
-- [ ] Extend approval policy to the authenticated operator session. Any content or target change creates a new version and invalidates old approval. Keep Kubernetes access read-only in this phase.
-- [ ] UI: incident detail and review screen must show evidence, uncertainty, exact target/change, expected effect, verification plan, and separate approve/reject actions. Add denial tests for rejected, expired, changed, missing-citation, duplicate, and wrong-target proposals.
+- [x] Register the trusted known-good template independently of model output. Bind recommendation version/hash/expiry to exact cluster, namespace, Deployment UID, expected bad template and resource version, desired good template hash, and retained real evidence IDs.
+- [x] Extend approval policy to the authenticated operator session. Any content or target change creates a new version and invalidates old approval. Keep Kubernetes access read-only in this phase.
+- [x] UI: incident detail and review screen must show evidence, uncertainty, exact target/change, expected effect, verification plan, and separate approve/reject actions. Add denial tests for rejected, expired, changed, missing-citation, duplicate, and wrong-target proposals.
 
-## Phase 6: one guarded restore action
+## Phase 6: one guarded restore action (implementation completed; live trial pending)
 
-- [ ] Design pending-operation reconciliation before enabling writes; preserve the existing commit-before-adapter claim and avoid automatic repeat after interruption.
-- [ ] Add one-use, short-lived execution capability bound to the approved proposal and execution. API and MCP independently validate UID, resource version, bad/good template hashes, expiry, and scope. Grant Kubernetes patch only on the sample Deployment through a restricted Role.
-- [ ] Record preflight and Kubernetes result. A successful patch means `execution_succeeded`, not recovery. Test stale version, UID/template drift, replay, missing approval, and out-of-scope targets with zero mutation.
+- [x] Design pending-operation reconciliation before enabling writes; preserve the existing commit-before-adapter claim and avoid automatic repeat after interruption.
+- [x] Add one-use, short-lived execution capability bound to the approved proposal and execution. API and MCP independently validate UID, resource version, bad/good template hashes, expiry, and scope. Grant Kubernetes patch only on the sample Deployment through a restricted Role (`infra/kind/mcp-writer.yaml`, verified by `scripts/check_writer_scope.py`).
+- [x] Record preflight and Kubernetes result. A successful patch means `execution_succeeded`, not recovery. Test stale version, UID/template drift, replay, missing approval, and out-of-scope targets with zero mutation (`apps/mcp/tests/test_restore_guard.py` & `apps/api/tests/test_live_proposals.py` passing).
+- [ ] Execute two full live recovery cycles with `python scripts/smoke_recovery.py` on the owned Kind cluster with `LIVE_EXECUTION_ENABLED=true` to capture `.local/kind/recovery-acceptance.json`.
 
 ## Phase 7: independent recovery verdict and complete UI
 
+- [x] Implement independent verification adapter and tool (`apps/mcp/app/adapters/prometheus.py`, `probe.py`, `apps/mcp/app/tools/verification.py` - 31/31 MCP unit tests passing).
 - [ ] After the patch, use a fresh window: restored rollout availability, three functional `/healthz` probes, and 60 seconds of Prometheus `/api/work` traffic with at least 20 requests and less than 1% 5xx. Store counts, ratio, thresholds, revision, observation times, statuses, timeout, and reason.
 - [ ] Return `passed`, `failed`, or `inconclusive` from measurements. Persistent errors or failed probes are failure; missing/stale metrics or insufficient traffic are inconclusive. Do not auto-close the incident.
 - [ ] UI: complete trigger → evidence → investigation → proposal → approval → execution → verification timeline, with pending/error/empty states and links to stored readings. Regenerate OpenAPI and frontend types; test that patch success never displays as verified recovery.
