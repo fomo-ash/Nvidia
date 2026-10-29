@@ -40,6 +40,23 @@ app.mount("/messages/", sse.handle_post_message)
 
 
 # Standard health check endpoint
+@app.middleware("http")
+async def service_auth(request, call_next):
+    import hmac
+    from fastapi.responses import JSONResponse
+    from app.config import settings
+
+    if request.url.path != "/health":
+        key = settings.SERVICE_AUTH_TOKEN
+        if len(key) < 32:
+            return JSONResponse(
+                {"detail": "Service authentication is not configured"}, status_code=503
+            )
+        if not hmac.compare_digest(request.headers.get("authorization", ""), "Bearer " + key):
+            return JSONResponse({"detail": "Service authentication required"}, status_code=401)
+    return await call_next(request)
+
+
 @app.get("/health", tags=["System"])
 async def health_check() -> dict[str, str]:
     return {"status": "ok", "service": "fixproof-mcp", "version": "0.1.0", "sdk": "anthropic-mcp"}

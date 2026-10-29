@@ -55,12 +55,13 @@ describe("operations console", () => {
   });
 
   it("signs in and reports the registered target as unassessed", async () => {
-    const fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ csrf_token: "csrf-test" }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => [{ target_id: "local-kind/fixproof-demo/sample-api", uid: "uid-1", cluster: "local-kind", namespace: "fixproof-demo", name: "sample-api" }] })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ incident_id: "incident-1", trigger_id: "trigger-1", investigation_request_id: "request-1", reused: false, assessment: "unassessed" }) })
-      .mockResolvedValue({ ok: true, json: async () => [] });
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => ({ ok: true, status: 200, json: async () => {
+      if (url.endsWith("/incidents") && options?.method === "POST") return reportResponse;
+      if (url.endsWith("/session")) return { csrf_token: "csrf-test" };
+      if (url.endsWith("/incident-targets")) return [{ target_id: "local-kind/fixproof-demo/sample-api", uid: "uid-1", cluster: "local-kind", namespace: "fixproof-demo", name: "sample-api" }];
+      return [];
+    } }));
+    const reportResponse = { incident_id: "incident-1", trigger_id: "trigger-1", investigation_request_id: "request-1", reused: false, assessment: "unassessed" };
     vi.stubGlobal("fetch", fetch);
     vi.stubGlobal("crypto", { randomUUID: () => "test-key" });
     mount("/incidents");
@@ -70,7 +71,33 @@ describe("operations console", () => {
     expect(await screen.findByText(/UID: uid-1/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Report incident" }));
     expect(await screen.findByText(/Awaiting evidence collection/)).toBeTruthy();
-    expect(fetch.mock.calls[3][1]).toMatchObject({ credentials: "include", headers: { "X-CSRF-Token": "csrf-test", "Idempotency-Key": "test-key" } });
+    expect(screen.getByText(/reporting is not detection or confirmation/)).toBeTruthy();
+    expect((fetch.mock.calls as unknown as [string, unknown][]).find(([, options]) => (options as { method?: string } | undefined)?.method === "POST" && (options as { headers?: { "Idempotency-Key"?: string } }).headers?.["Idempotency-Key"] === "test-key")?.[1]).toMatchObject({ credentials: "include", headers: { "X-CSRF-Token": "csrf-test", "Idempotency-Key": "test-key" } });
+  });
+
+  it("reuses a pending report key after a dropped response", async () => {
+    const keys: string[] = [];
+    let attempts = 0;
+    const uuid = vi.fn().mockReturnValueOnce("retry-key-one").mockReturnValue("retry-key-two");
+    vi.stubGlobal("crypto", { randomUUID: uuid });
+    vi.stubGlobal("fetch", vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.endsWith("/incidents") && options?.method === "POST") {
+        keys.push((options.headers as Record<string, string>)["Idempotency-Key"]);
+        if (++attempts === 1) throw new Error("network dropped");
+        return { ok: true, status: 201, json: async () => ({ incident_id: "incident-1", reused: false }) };
+      }
+      return { ok: true, status: 200, json: async () => url.endsWith("/session") ? { csrf_token: "csrf-test" } : url.endsWith("/incident-targets") ? [{ target_id: "local-kind/fixproof-demo/sample-api", uid: "uid-1", cluster: "local-kind", namespace: "fixproof-demo", name: "sample-api" }] : [] };
+    }));
+    mount("/incidents");
+    fireEvent.change(screen.getByLabelText("Local operator secret"), { target: { value: "local-secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByText(/UID: uid-1/);
+    fireEvent.click(screen.getByRole("button", { name: "Report incident" }));
+    expect(await screen.findByText("network dropped")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Report incident" }));
+    await screen.findByText(/Incident reported/);
+    expect(keys).toEqual(["retry-key-one", "retry-key-one"]);
+    expect(uuid).toHaveBeenCalledTimes(1);
   });
 
   it("shows a recoverable overview error and unknown-route fallback", async () => {

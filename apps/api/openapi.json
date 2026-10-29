@@ -1,6 +1,78 @@
 {
   "components": {
     "schemas": {
+      "Analysis": {
+        "additionalProperties": false,
+        "properties": {
+          "advisory_action": {
+            "enum": [
+              "restore_known_good_template",
+              "none"
+            ],
+            "title": "Advisory Action",
+            "type": "string"
+          },
+          "gaps": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Gaps",
+            "type": "array"
+          },
+          "hypotheses": {
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Hypotheses",
+            "type": "array"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "hypotheses",
+          "advisory_action"
+        ],
+        "title": "Analysis",
+        "type": "object"
+      },
+      "AnalysisResult": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/Analysis"
+          },
+          "model": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Model",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "nebius",
+              "groq"
+            ],
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "model",
+          "analysis"
+        ],
+        "title": "AnalysisResult",
+        "type": "object"
+      },
       "ApprovalOut": {
         "properties": {
           "actor": {
@@ -506,7 +578,10 @@
             "$ref": "#/components/schemas/CostSummaryOut"
           },
           "mode": {
-            "const": "deterministic-demo",
+            "enum": [
+              "deterministic-demo",
+              "local-operations"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -545,6 +620,17 @@
       "EvidenceItemOut": {
         "additionalProperties": false,
         "properties": {
+          "collection_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Error"
+          },
           "content_hash": {
             "title": "Content Hash",
             "type": "string"
@@ -566,8 +652,10 @@
             "type": "string"
           },
           "mode": {
-            "const": "synthetic",
-            "default": "synthetic",
+            "enum": [
+              "synthetic",
+              "live"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -576,11 +664,54 @@
             "title": "Observed At",
             "type": "string"
           },
+          "raw_data": {
+            "additionalProperties": true,
+            "title": "Raw Data",
+            "type": "object"
+          },
+          "redacted": {
+            "default": false,
+            "title": "Redacted",
+            "type": "boolean"
+          },
           "source": {
             "maxLength": 200,
             "minLength": 1,
             "title": "Source",
             "type": "string"
+          },
+          "target_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Uid"
+          },
+          "transport_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transport Hash"
+          },
+          "transport_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transport Id"
           },
           "trust_label": {
             "const": "untrusted",
@@ -598,6 +729,7 @@
           "source",
           "observed_at",
           "fact",
+          "mode",
           "id",
           "investigation_id",
           "content_hash",
@@ -737,6 +869,52 @@
           "completed_at"
         ],
         "title": "ExecutionOut",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "cause": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Cause",
+            "type": "string"
+          },
+          "contradicting_evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Contradicting Evidence Ids",
+            "type": "array"
+          },
+          "supporting_evidence_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Supporting Evidence Ids",
+            "type": "array"
+          },
+          "uncertainty": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Uncertainty",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cause",
+          "supporting_evidence_ids",
+          "uncertainty"
+        ],
+        "title": "Finding",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -899,6 +1077,99 @@
         "title": "IncidentOut",
         "type": "object"
       },
+      "IncidentTargetOut": {
+        "properties": {
+          "cluster": {
+            "title": "Cluster",
+            "type": "string"
+          },
+          "kind": {
+            "const": "Deployment",
+            "default": "Deployment",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "title": "Namespace",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uid"
+          }
+        },
+        "required": [
+          "target_id",
+          "cluster",
+          "namespace",
+          "name",
+          "uid"
+        ],
+        "title": "IncidentTargetOut",
+        "type": "object"
+      },
+      "IncidentTriggerOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reported_at": {
+            "format": "date-time",
+            "title": "Reported At",
+            "type": "string"
+          },
+          "reporter": {
+            "title": "Reporter",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "reporter",
+          "summary",
+          "note",
+          "reported_at"
+        ],
+        "title": "IncidentTriggerOut",
+        "type": "object"
+      },
       "IntegrationOut": {
         "properties": {
           "capabilities": {
@@ -963,7 +1234,10 @@
             "type": "string"
           },
           "mode": {
-            "const": "synthetic",
+            "enum": [
+              "synthetic",
+              "live"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -971,9 +1245,26 @@
             "title": "Provider",
             "type": "string"
           },
+          "request_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "result": {
+            "$ref": "#/components/schemas/InvestigationResultOut"
+          },
           "status": {
             "enum": [
+              "collecting",
               "completed",
+              "needs_review",
               "failed"
             ],
             "title": "Status",
@@ -994,6 +1285,111 @@
           "created_at"
         ],
         "title": "InvestigationOut",
+        "type": "object"
+      },
+      "InvestigationRequestOut": {
+        "properties": {
+          "attempts": {
+            "default": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "claimed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "trigger_id": {
+            "format": "uuid",
+            "title": "Trigger Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "trigger_id",
+          "status",
+          "created_at"
+        ],
+        "title": "InvestigationRequestOut",
+        "type": "object"
+      },
+      "InvestigationResultOut": {
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assessment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment"
+          },
+          "gaps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          }
+        },
+        "title": "InvestigationResultOut",
         "type": "object"
       },
       "LoginRequest": {
@@ -2568,7 +2964,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IncidentTargetOut"
+                  },
+                  "title": "Response Incident Targets Api V1 Incident Targets Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -3123,7 +3525,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvestigationRequestOut"
+                  },
+                  "title": "Response Incident Requests Api V1 Incidents  Incident Id  Investigation Requests Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -3576,7 +3984,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IncidentTriggerOut"
+                  },
+                  "title": "Response Incident Triggers Api V1 Incidents  Incident Id  Triggers Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

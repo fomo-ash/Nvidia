@@ -51,9 +51,7 @@ def install_transport(monkeypatch, responder):
     monkeypatch.setattr(
         httpx,
         "AsyncClient",
-        lambda **kwargs: original_client(
-            transport=httpx.MockTransport(responder), **kwargs
-        ),
+        lambda **kwargs: original_client(transport=httpx.MockTransport(responder), **kwargs),
     )
 
 
@@ -65,9 +63,7 @@ async def test_policy_provider_never_attempts_network(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", forbidden)
     engine = JevDecisionEngine(api_key="live-key", provider="policy")
 
-    result = await engine.evaluate_sufficiency(
-        evidence("prometheus", "kubernetes:deployment")
-    )
+    result = await engine.evaluate_sufficiency(evidence("prometheus", "kubernetes:deployment"))
 
     assert result.is_sufficient is True
     assert result.is_active_outage is False
@@ -90,9 +86,7 @@ async def test_laya_provider_uses_compatible_endpoint_and_score_answer(monkeypat
         provider="laya",
     )
 
-    result = await engine.evaluate_sufficiency(
-        evidence("prometheus", "kubernetes:deployment")
-    )
+    result = await engine.evaluate_sufficiency(evidence("prometheus", "kubernetes:deployment"))
 
     assert result.is_sufficient is True
     assert result.confidence == 0.88
@@ -117,14 +111,10 @@ async def test_jev_provider_uses_jev_only_when_selected(monkeypatch):
         provider="jev",
     )
 
-    result = await engine.evaluate_sufficiency(
-        evidence("prometheus", "kubernetes:deployment")
-    )
+    result = await engine.evaluate_sufficiency(evidence("prometheus", "kubernetes:deployment"))
 
     assert result.is_sufficient is True
-    assert [str(request.url) for request in requests] == [
-        "http://mock-jev:9000/v1/systemone"
-    ]
+    assert [str(request.url) for request in requests] == ["http://mock-jev:9000/v1/systemone"]
     assert requests[0].headers["authorization"] == "Bearer live-key"
 
 
@@ -134,9 +124,7 @@ async def test_external_answer_cannot_bypass_physical_evidence_gate(monkeypatch)
         return httpx.Response(200, json={"answers": sufficiency_answers()})
 
     install_transport(monkeypatch, respond)
-    engine = JevDecisionEngine(
-        laya_base_url="http://system1-policy:8000", provider="laya"
-    )
+    engine = JevDecisionEngine(laya_base_url="http://system1-policy:8000", provider="laya")
 
     result = await engine.evaluate_sufficiency(evidence("prometheus"))
 
@@ -154,16 +142,12 @@ async def test_external_answer_cannot_bypass_physical_evidence_gate(monkeypatch)
         {"is_sufficient": {"noul": 0.99}},
     ],
 )
-async def test_malformed_sufficiency_answers_fall_back_to_policy(
-    monkeypatch, invalid_answers
-):
+async def test_malformed_sufficiency_answers_fall_back_to_policy(monkeypatch, invalid_answers):
     def respond(request):
         return httpx.Response(200, json={"answers": invalid_answers})
 
     install_transport(monkeypatch, respond)
-    engine = JevDecisionEngine(
-        laya_base_url="http://system1-policy:8000", provider="laya"
-    )
+    engine = JevDecisionEngine(laya_base_url="http://system1-policy:8000", provider="laya")
 
     result = await engine.evaluate_sufficiency(evidence("prometheus"))
 
@@ -190,9 +174,7 @@ async def test_advisory_low_risk_never_removes_human_approval(monkeypatch):
         return httpx.Response(200, json={"answers": risk_answers()})
 
     install_transport(monkeypatch, respond)
-    engine = JevDecisionEngine(
-        laya_base_url="http://system1-policy:8000", provider="laya"
-    )
+    engine = JevDecisionEngine(laya_base_url="http://system1-policy:8000", provider="laya")
     candidate = RemediationCandidate(
         action_type="restore_known_good_template",
         parameters={"namespace": "fixproof-demo", "deployment_name": "sample-api"},
@@ -214,9 +196,7 @@ async def test_invalid_risk_answer_falls_back_to_guarded_policy(monkeypatch):
         return httpx.Response(200, json={"answers": invalid})
 
     install_transport(monkeypatch, respond)
-    engine = JevDecisionEngine(
-        laya_base_url="http://system1-policy:8000", provider="laya"
-    )
+    engine = JevDecisionEngine(laya_base_url="http://system1-policy:8000", provider="laya")
     candidate = RemediationCandidate(
         action_type="restore_known_good_template",
         parameters={"namespace": "fixproof-demo", "deployment_name": "sample-api"},

@@ -1,36 +1,25 @@
 # MCP and AI implementation status
 
-AI and MCP remain read-only scaffolds for the planned local kind workflow. The [architecture contract](README.md) defines service authority, the [implementation plan](../IMPLEMENTATION_PLAN.md) defines delivery order, and this file records implementation limits. Historical fail-closed work is recorded [separately](FAIL_CLOSED_IMPLEMENTATION.md).
+Updated 2026-10-29. The integrated product path now supports authenticated intake → durable source collection → structured, evidence-cited Nebius analysis. It remains read-only; no product restore or verified recovery is enabled. See [live acceptance](../LIVE_INVESTIGATION_HANDOFF.md), [authority contract](README.md) and [delivery plan](../IMPLEMENTATION_PLAN.md).
 
-## Implemented
+## Integrated path
 
-- MCP exposes five bounded read tools over SSE/private REST. Source failure never substitutes synthetic readings. Restore remains absent from the registry/routes and its internal compatibility function always fails.
-- Each new AI investigation receives a fresh run UUID, independent of incident identity. Reinvestigation collects new evidence instead of appending to an older checkpoint. Chat explicitly selects a run and checks its incident; its session history is also separated by run.
-- MCP evidence hashes bind ID, source, fact, raw payload, aware UTC observation time, mode and trust marker. AI retains that timestamp and rejects missing/naive/stale/future timestamps, wrong source/mode, or a mismatched hash. It also checks evidence age immediately before reasoning.
-- Metrics query only the registered sample job and `/api/work` route. Total, errors and source-scrape freshness share an explicit evaluation time. Source timestamps, query strings and window boundaries are retained; absent/nonfinite/stale data fails closed. Fractional counter increases are preserved.
-- `JevDecisionEngine` now honors explicit `policy`, `jev`, and `laya` selection. External answer sets are accepted only after complete schema validation and cannot bypass trusted physical evidence or human approval. The bundled `infra/laya` service is a deterministic protocol fixture, not the Laya model.
-- Log handling uses `tailLines=100`, a 16KB hard memory cap, ANSI escape stripping, and 500-character per-line clamping in the MCP Kubernetes adapter. Logs remain untrusted evidence.
-- AI/MCP dependency lockfiles are consumed by Docker and a dedicated two-service CI matrix. Both services use the same pinned Ruff version as the API; imported scaffolds have been formatted.
+- API sessions/CSRF protect reports, target history and evidence reads. Migration 0005 extends the durable request queue, normalized investigations and retained evidence while preserving prior records.
+- A separate worker commits a lease before external reads, serializes work per incident, persists each source checkpoint, rejects stale tokens and bounds read-only retries. It verifies Deployment identity before retaining any other target-bound source. Completed jobs do not repeat. No inference call holds an incident lock.
+- MCP has a namespace-scoped 24-hour read identity, verified Kubernetes CA, fixed target UID, owner-filtered pod/ReplicaSet/event/log reads, bounded responses and fixed metric/probe inputs. Its token cannot read other namespaces or patch the sample. Restore remains absent from public tool/REST surfaces.
+- Authenticated service calls bind source/mode/time/hash/UID to each envelope. Redaction runs before API persistence; transport provenance and the retained redacted representation have separate hashes. Source errors remain explicit gaps with empty measurements.
+- The API database owns canonical evidence UUIDs and all durable run state. Stateless AI `/analyze` receives bounded redacted retained context, validates structured output and citation membership, and returns provider/model metadata with uncertainty/gaps. It does not create recommendations or select exact mutation parameters.
+- The incident UI polls queue progress, separates measurements from interpretation, renders source/analysis gaps and supports durable incident links/reload. Interrupted report retries retain the same idempotency key.
+- Compose now scopes secrets explicitly: only AI receives inference keys; only API receives operator/session secrets; only MCP mounts scoped Kubernetes read credentials. API and AI health endpoints do not establish live source/model availability.
 
-## Local acceptance for this change
+## Separate advisory scaffolds
 
-Checks run in separate Python 3.12 environments with no cloud credentials or infrastructure mutations. AI tests cover new-run isolation, chat run/incident mismatch, timestamp/hash tampering, source/mode validation, and expiry before reasoning. MCP tests cover common evaluation time, explicit query scope, scrape freshness, malformed/absent data, evidence hash binding and disabled mutation.
+The older LangGraph `/investigate` and conversational `/chat` paths remain internal scaffolds using MemorySaver, not the API's durable workflow. Their fresh run IDs prevent evidence mixing, but they are not a second source of approval or execution authority. ChatOps still needs retained-record grounding and durable conversation integration before exposure as an operator feature.
 
-The final test counts and verification boundaries are recorded in the [change handoff](EVIDENCE_CONTRACT_HANDOFF.md). Local results do not establish GitHub CI, live kind connectivity, Nebius response quality, or infrastructure recovery. Docker was stopped during the initial review; container build/full-stack acceptance must be checked separately.
+Jev/Laya provider selection, answer validation, physical-evidence requirements and mandatory approval behavior are preserved. The bundled Laya container is a deterministic compatibility fixture, not a deployed Laya model. Optional System-1 advice never replaces the integrated worker's physical evidence/target policy.
 
-System-1 provider selection, response validation, physical evidence gating, and the deterministic
-compatibility fixture were rechecked in the
-[System-1 stabilization handoff](SYSTEM1_STABILIZATION_HANDOFF.md).
+## Verification and remaining gates
 
-## Still required before operator/live integration
+The [handoff](../LIVE_INVESTIGATION_HANDOFF.md) records SQLite/PostgreSQL, AI/MCP, UI/browser, real kind/Nebius, source-outage and restart results. These are local results; GitHub CI and peer review remain pending.
 
-1. The [kind sample and traffic fixture](../../infra/kind/README.md) now exists, including initialized counters and private Prometheus networking. Add namespace-scoped MCP Kubernetes read credentials and prove its TLS API connectivity; developer fixture credentials must never be reused. See the [fixture handoff](../KIND_FIXTURE_HANDOFF.md) for later live acceptance.
-2. Add authenticated API intake, durable jobs and the evidence mapping/persistence bridge. The API currently accepts only the synthetic provider. Transport evidence and API UUID records have different contracts; no direct compatibility is claimed.
-3. Replace `MemorySaver` with durable checkpointing and coordinate idempotent API result ingestion through a job/outbox. No approval interrupt, restart recovery or distributed worker serialization is implemented.
-4. Implement structured provider output and remove fixed-confidence/root-cause assertions. Citation membership alone does not prove a supported diagnosis. Live model endpoints and response shape need a credential-gated test.
-5. Finish ChatOps grounding: inject selected evidence into model context, persist tool reads, and validate against the complete retained evidence set. Selecting the correct run does not fix dynamic-tool citation handling. Add explicit inference/tool/concurrency budgets.
-6. Register a trusted baseline, persist exact target preconditions, and implement authenticated operator approval. Jev remains optional advisory input and never grants execution authority.
-7. Add service authentication, one-use execution capabilities, atomic Kubernetes preconditions, durable replay protection and pending-outcome reconciliation before any write permission/tool is enabled.
-8. Independently measure recovery using a complete post-action rollout/probe/traffic window. Current investigation metrics are not a verification verdict.
-
-No new approvable proposal or infrastructure mutation is enabled by these changes. The existing Phase 2 API foundation remains complete; the new MVP delivery phases are a separate roadmap.
+Next: trusted baseline registration and exact proposal creation/review, then independently guarded execution with durable one-use capability and unknown-outcome reconciliation, then measured post-action verification and complete release rehearsal. Infrastructure write permissions remain disabled. Production identity, service transport hardening, DB administrative permissions, retention and broader-host acceptance remain separate security/release work.

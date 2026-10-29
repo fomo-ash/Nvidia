@@ -58,6 +58,10 @@ class InvestigationRequest(Base):
     incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incidents.id"), index=True)
     trigger_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incident_triggers.id"), unique=True)
     status: Mapped[str] = mapped_column(String(20), default="queued")
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    claim_token: Mapped[str | None] = mapped_column(String(36))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
@@ -105,10 +109,17 @@ class AuditEvent(Base):
 class Investigation(Base):
     __tablename__ = "investigations"
     __table_args__ = (
-        CheckConstraint("status IN ('completed', 'failed')", name="ck_investigation_status"),
+        CheckConstraint(
+            "status IN ('collecting', 'completed', 'needs_review', 'failed')",
+            name="ck_investigation_status",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     incident_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("incidents.id"), index=True)
+    request_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("investigation_requests.id", name="fk_investigation_request")
+    )
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
     provider: Mapped[str] = mapped_column(String(80))
     mode: Mapped[str] = mapped_column(String(20), default="synthetic")
     status: Mapped[str] = mapped_column(String(20), default="completed")
@@ -125,6 +136,12 @@ class EvidenceItem(Base):
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     fact: Mapped[str] = mapped_column(Text)
     content_hash: Mapped[str] = mapped_column(String(64))
+    transport_id: Mapped[str | None] = mapped_column(String(80))
+    transport_hash: Mapped[str | None] = mapped_column(String(64))
+    target_uid: Mapped[str | None] = mapped_column(String(80))
+    raw_data: Mapped[dict] = mapped_column(JSON, default=dict)
+    collection_error: Mapped[str | None] = mapped_column(String(200))
+    redacted: Mapped[bool] = mapped_column(default=False)
     trust_label: Mapped[str] = mapped_column(String(20), default="untrusted")
     mode: Mapped[str] = mapped_column(String(20), default="synthetic")
 

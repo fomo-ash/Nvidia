@@ -600,6 +600,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Analysis */
+        Analysis: {
+            /**
+             * Advisory Action
+             * @enum {string}
+             */
+            advisory_action: "restore_known_good_template" | "none";
+            /** Gaps */
+            gaps?: string[];
+            /** Hypotheses */
+            hypotheses: components["schemas"]["Finding"][];
+            /** Summary */
+            summary: string;
+        };
+        /** AnalysisResult */
+        AnalysisResult: {
+            analysis: components["schemas"]["Analysis"];
+            /** Model */
+            model: string;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "nebius" | "groq";
+        };
         /** ApprovalOut */
         ApprovalOut: {
             /** Actor */
@@ -818,9 +843,9 @@ export interface components {
             cost_autopsy: components["schemas"]["CostSummaryOut"];
             /**
              * Mode
-             * @constant
+             * @enum {string}
              */
-            mode: "deterministic-demo";
+            mode: "deterministic-demo" | "local-operations";
             /** Open Incidents */
             open_incidents: number;
         };
@@ -833,6 +858,8 @@ export interface components {
         };
         /** EvidenceItemOut */
         EvidenceItemOut: {
+            /** Collection Error */
+            collection_error?: string | null;
             /** Content Hash */
             content_hash: string;
             /** Fact */
@@ -849,17 +876,31 @@ export interface components {
             investigation_id: string;
             /**
              * Mode
-             * @default synthetic
-             * @constant
+             * @enum {string}
              */
-            mode: "synthetic";
+            mode: "synthetic" | "live";
             /**
              * Observed At
              * Format: date-time
              */
             observed_at: string;
+            /** Raw Data */
+            raw_data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Redacted
+             * @default false
+             */
+            redacted: boolean;
             /** Source */
             source: string;
+            /** Target Uid */
+            target_uid?: string | null;
+            /** Transport Hash */
+            transport_hash?: string | null;
+            /** Transport Id */
+            transport_id?: string | null;
             /**
              * Trust Label
              * @constant
@@ -944,6 +985,20 @@ export interface components {
             /** Target */
             target: string;
         };
+        /** Finding */
+        Finding: {
+            /** Cause */
+            cause: string;
+            /** Contradicting Evidence Ids */
+            contradicting_evidence_ids?: string[];
+            /** Supporting Evidence Ids */
+            supporting_evidence_ids: string[];
+            /**
+             * Uncertainty
+             * @enum {string}
+             */
+            uncertainty: "low" | "medium" | "high";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -996,6 +1051,46 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** IncidentTargetOut */
+        IncidentTargetOut: {
+            /** Cluster */
+            cluster: string;
+            /**
+             * Kind
+             * @default Deployment
+             * @constant
+             */
+            kind: "Deployment";
+            /** Name */
+            name: string;
+            /** Namespace */
+            namespace: string;
+            /** Target Id */
+            target_id: string;
+            /** Uid */
+            uid: string | null;
+        };
+        /** IncidentTriggerOut */
+        IncidentTriggerOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string | null;
+            /**
+             * Reported At
+             * Format: date-time
+             */
+            reported_at: string;
+            /** Reporter */
+            reporter: string;
+            /** Source */
+            source: string;
+            /** Summary */
+            summary: string;
+        };
         /** IntegrationOut */
         IntegrationOut: {
             /** Capabilities */
@@ -1034,18 +1129,60 @@ export interface components {
             incident_id: string;
             /**
              * Mode
-             * @constant
+             * @enum {string}
              */
-            mode: "synthetic";
+            mode: "synthetic" | "live";
             /** Provider */
             provider: string;
+            /** Request Id */
+            request_id?: string | null;
+            result?: components["schemas"]["InvestigationResultOut"];
             /**
              * Status
              * @enum {string}
              */
-            status: "completed" | "failed";
+            status: "collecting" | "completed" | "needs_review" | "failed";
             /** Summary */
             summary: string;
+        };
+        /** InvestigationRequestOut */
+        InvestigationRequestOut: {
+            /**
+             * Attempts
+             * @default 0
+             */
+            attempts: number;
+            /** Claimed At */
+            claimed_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /**
+             * Trigger Id
+             * Format: uuid
+             */
+            trigger_id: string;
+        };
+        /** InvestigationResultOut */
+        InvestigationResultOut: {
+            analysis?: components["schemas"]["AnalysisResult"] | null;
+            /** Assessment */
+            assessment?: string | null;
+            /** Gaps */
+            gaps?: string[];
+            /** Stage */
+            stage?: string | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -2070,7 +2207,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IncidentTargetOut"][];
                 };
             };
             /** @description Unauthorized */
@@ -2471,7 +2608,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["InvestigationRequestOut"][];
                 };
             };
             /** @description Unauthorized */
@@ -2751,7 +2888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IncidentTriggerOut"][];
                 };
             };
             /** @description Unauthorized */

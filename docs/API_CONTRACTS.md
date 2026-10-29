@@ -90,3 +90,9 @@ These are **future contract changes**, not routes or fields in the current OpenA
 | `GET /integrations` (extend) | Report actual kind, MCP, Prometheus, and Nebius configuration/readiness separately without exposing secrets or fabricating connectivity. |
 
 Manual intake is required for the MVP; an optional Prometheus detector later uses the same internal intake service and labels its trigger `prometheus`. See [intake specification](INCIDENT_INTAKE.md). Until real collectors and adapters exist, the current endpoints remain synthetic or unavailable as stated above.
+
+## Integrated live evidence, migration 0005
+
+Target, trigger and investigation-request reads now have declared response models. Trigger/request history returns the newest 100 rows. Requests expose claim time, attempts and completion time; the separate worker consumes queued live reports. Investigation reads support live mode and collecting/completed/needs_review/failed, request identity and typed retained analysis. Evidence reads expose transport ID/hash, target UID, bounded redacted raw data, redaction marker and explicit collection error. Canonical evidence IDs remain UUIDs; transport IDs are provenance, never model citation authority.
+
+The worker is not a browser-controlled callback. Clients cannot submit measurements, provider success, target overrides or collector results. Mode/source/time/hash/UID validation and redaction precede persistence. Missing source records contain an error and empty data. Model failure does not replace physical evidence or create recommendations. Existing synthetic proposal/approval/operations contracts are unchanged and cannot authorize a live report. See [the handoff](LIVE_INVESTIGATION_HANDOFF.md).

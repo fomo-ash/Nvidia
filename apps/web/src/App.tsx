@@ -1,7 +1,7 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./services/api";
-import IncidentReport from "./IncidentReport";
+import IncidentReport, { IncidentProgress } from "./IncidentReport";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
@@ -44,9 +44,14 @@ function Incidents() {
     {query.isPending ? <p role="status">Loading incidents...</p> :
       query.isError ? <div role="alert"><p>Unable to load incidents.</p><button onClick={() => void query.refetch()}>Retry</button></div> :
         <section className="panel">{query.data.length ? query.data.map(item =>
-          <div className="row" key={item.id}><b>{item.title}</b><span className="badge">{item.severity}</span><span>{item.status}</span></div>,
+          <div className="row" key={item.id}><b>{item.title}</b><span className="badge">{item.severity}</span><span>{item.status}</span><NavLink to={`/incidents/${item.id}`}>View investigation</NavLink></div>,
         ) : <p>No incidents yet. Seed the local demo to load an example.</p>}</section>}
   </>;
+}
+
+function IncidentDetails() {
+  const { incidentId } = useParams();
+  return <><h1>Incident details</h1><p><NavLink to="/incidents">Back to reports and sign in</NavLink></p>{incidentId && <IncidentProgress incidentId={incidentId} />}</>;
 }
 
 function Placeholder({ title }: { title: string }) {
@@ -59,11 +64,12 @@ export default function App() {
     <aside>
       <div className="brand">FIX<span>PROOF</span></div><p>Local operations assistant</p>
       <nav aria-label="Main navigation">{links.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}</nav>
-      <footer>Local demo identity<br />Synthetic evidence and billing</footer>
+      <footer>Local operator console<br />Billing samples labeled synthetic</footer>
     </aside>
     <main><Routes>
       <Route path="/" element={<Overview />} />
       <Route path="/incidents" element={<Incidents />} />
+      <Route path="/incidents/:incidentId" element={<IncidentDetails />} />
       <Route path="/investigations" element={<Placeholder title="Investigation timeline" />} />
       <Route path="/approvals" element={<Placeholder title="Remediation approval" />} />
       <Route path="/costs" element={<Placeholder title="Cloud Cost Autopsy" />} />

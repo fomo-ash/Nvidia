@@ -12,10 +12,11 @@ async def get_pod_logs(
     """Fetch bounded logs (max 100 lines) from target pod."""
     client = KubernetesClient()
     bounded_lines = min(max(1, lines), 100)
-    log_lines = await client.get_pod_logs(
+    payload = await client.get_pod_logs(
         namespace=namespace, deployment_name=deployment_name, lines=bounded_lines
     )
 
+    log_lines = payload["lines"]
     error_count = sum(
         1 for line in log_lines if "500" in line or "ERROR" in line or "FAIL_MODE" in line
     )
@@ -28,6 +29,7 @@ async def get_pod_logs(
         source="kubernetes:logs",
         fact=fact,
         raw_data={
+            **payload,
             "lines": log_lines,
             "line_count": len(log_lines),
             "error_line_count": error_count,
