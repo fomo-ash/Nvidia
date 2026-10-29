@@ -92,6 +92,20 @@ class Recommendation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class TrustedBaseline(Base):
+    __tablename__ = "trusted_baselines"
+    __table_args__ = (UniqueConstraint("target_uid", name="uq_trusted_baseline_uid"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    cluster: Mapped[str] = mapped_column(String(80))
+    namespace: Mapped[str] = mapped_column(String(80))
+    deployment: Mapped[str] = mapped_column(String(80))
+    target_uid: Mapped[str] = mapped_column(String(80))
+    template: Mapped[dict] = mapped_column(JSON)
+    template_hash: Mapped[str] = mapped_column(String(64))
+    registered_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
     __table_args__ = (

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     service_auth_token: str = ""
     investigation_lease_seconds: int = Field(default=180, ge=120, le=3600)
     analysis_enabled: bool = False
+    live_execution_enabled: bool = False
+    execution_signing_key: str = ""
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

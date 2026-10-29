@@ -153,6 +153,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/executions/{execution_id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconcile Execution */
+        post: operations["reconcile_execution_api_v1_executions__execution_id__reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/executions/{execution_id}/verification": {
         parameters: {
             query?: never;
@@ -301,6 +318,23 @@ export interface paths {
         get: operations["incident_investigations_api_v1_incidents__incident_id__investigations_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{incident_id}/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Live Proposal */
+        post: operations["create_live_proposal_api_v1_incidents__incident_id__proposals_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -528,6 +562,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trusted-baselines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register Trusted Baseline */
+        post: operations["register_trusted_baseline_api_v1_trusted_baselines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trusted-baselines/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current Trusted Baseline */
+        get: operations["current_trusted_baseline_api_v1_trusted_baselines_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/verifications/{verification_id}": {
         parameters: {
             query?: never;
@@ -688,6 +756,17 @@ export interface components {
              * Format: uuid
              */
             id: string;
+        };
+        /** BaselineRegistration */
+        BaselineRegistration: {
+            /** Target Uid */
+            target_uid: string;
+            /** Template */
+            template: {
+                [key: string]: unknown;
+            };
+            /** Template Hash */
+            template_hash: string;
         };
         /** CostAnalysisCreate */
         CostAnalysisCreate: {
@@ -1184,6 +1263,26 @@ export interface components {
             /** Stage */
             stage?: string | null;
         };
+        /** LiveProposalEvidence */
+        LiveProposalEvidence: {
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source */
+            source: string;
+        };
+        /** LiveProposalRequest */
+        LiveProposalRequest: {
+            /**
+             * Investigation Id
+             * Format: uuid
+             */
+            investigation_id: string;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Secret */
@@ -1265,7 +1364,7 @@ export interface components {
              */
             created_at: string;
             /** Evidence */
-            evidence: components["schemas"]["EvidenceOut"][] | null;
+            evidence: (components["schemas"]["EvidenceOut"] | components["schemas"]["LiveProposalEvidence"])[] | null;
             /** Expires At */
             expires_at: string | null;
             /**
@@ -1318,6 +1417,31 @@ export interface components {
             };
             /** Event */
             event: string;
+        };
+        /** TrustedBaselineOut */
+        TrustedBaselineOut: {
+            /** Cluster */
+            cluster: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deployment */
+            deployment: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Namespace */
+            namespace: string;
+            /** Registered By */
+            registered_by: string;
+            /** Target Uid */
+            target_uid: string;
+            /** Template Hash */
+            template_hash: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2043,6 +2167,79 @@ export interface operations {
             };
         };
     };
+    reconcile_execution_api_v1_executions__execution_id__reconcile_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                execution_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     execution_verification_api_v1_executions__execution_id__verification_get: {
         parameters: {
             query?: never;
@@ -2680,6 +2877,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvestigationOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_live_proposal_api_v1_incidents__incident_id__proposals_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationOut"];
                 };
             };
             /** @description Unauthorized */
@@ -3592,6 +3862,133 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_trusted_baseline_api_v1_trusted_baselines_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BaselineRegistration"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrustedBaselineOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    current_trusted_baseline_api_v1_trusted_baselines_current_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrustedBaselineOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };

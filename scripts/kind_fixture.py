@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / ".local" / "kind"
 KUBECONFIG = STATE / "kubeconfig"
 KUBECTL = STATE / "bin" / ("kubectl.exe" if platform.system() == "Windows" else "kubectl")
-KUBECTL_VERSION = "v1.34.0"
+KUBECTL_VERSION = "v1.34.1"
 BASELINE = STATE / "baseline.json"
 RECEIPT = STATE / "ownership.json"
 CLUSTER = "fixproof-demo"

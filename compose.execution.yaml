@@ -1,0 +1,12 @@
+# Opt in only after exact approval, capability, RBAC and denial tests pass.
+services:
+  api:
+    environment:
+      LIVE_EXECUTION_ENABLED: ${LIVE_EXECUTION_ENABLED:-false}
+      EXECUTION_SIGNING_KEY: ${EXECUTION_SIGNING_KEY:?run configure_execution.py}
+  mcp:
+    environment:
+      EXECUTION_SIGNING_KEY: ${EXECUTION_SIGNING_KEY:?run configure_execution.py}
+      KUBERNETES_WRITE_TOKEN_PATH: /run/fixproof/write-token
+    volumes:
+      - ./.local/kind/writer/token:/run/fixproof/write-token:ro

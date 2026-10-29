@@ -1,5 +1,5 @@
 FROM python:3.12-slim AS base
-COPY --from=ghcr.io/astral-sh/uv:0.9.17 /uv /bin/uv
+RUN pip install --no-cache-dir uv==0.9.17
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=0
 ENV PATH="/app/.venv/bin:$PATH"
 WORKDIR /app

@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     SERVICE_AUTH_TOKEN: str = ""
     KUBERNETES_TARGET_UID: str = ""
+    KUBERNETES_WRITE_TOKEN_PATH: str = ""
+    EXECUTION_SIGNING_KEY: str = ""
 
 
 settings = Settings()

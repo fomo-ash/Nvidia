@@ -7,6 +7,9 @@ from mcp.server.sse import SseServerTransport
 
 from app.config import settings
 from app.schemas.evidence import EvidenceItem
+from app.schemas.actions import ActionResult, RestoreActionRequest
+from app.tools.patch import restore_known_good_template
+from app.tools.verification import VerifyRequest, verify_recovery
 from app.server import server
 from app.tools import (
     check_service_health,
@@ -119,3 +122,16 @@ async def handle_pod_logs(body: PodLogsInput | None = None) -> EvidenceItem:
 async def handle_service_health(body: ServiceHealthInput | None = None) -> EvidenceItem:
     url = body.target_url if body else settings.SAMPLE_APP_HEALTH_URL
     return await check_service_health(target_url=url)
+
+
+@app.post(
+    "/internal/restore_known_good_template", response_model=ActionResult, tags=["Internal Action"]
+)
+async def handle_restore(body: RestoreActionRequest) -> ActionResult:
+    # Deliberately absent from the model-visible MCP tool registry.
+    return await restore_known_good_template(body)
+
+
+@app.post("/internal/verify_recovery", tags=["Internal Verification"])
+async def handle_verify_recovery(body: VerifyRequest):
+    return await verify_recovery(body)

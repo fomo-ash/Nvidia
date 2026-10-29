@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from uuid import UUID
 from typing import Literal
@@ -67,6 +69,13 @@ class ManualIncidentOut(RecordOut):
     reused: bool
 
 
+class LiveProposalEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    source: str
+    content_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class RecommendationOut(RecordOut):
     id: UUID
     incident_id: UUID
@@ -87,7 +96,7 @@ class RecommendationOut(RecordOut):
     parameters: dict
     proposal_hash: str | None
     expires_at: datetime | None
-    evidence: list[EvidenceOut] | None
+    evidence: list[EvidenceOut | LiveProposalEvidence] | None
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -95,6 +104,29 @@ class RecommendationOut(RecordOut):
 class ApprovalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     proposal_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class BaselineRegistration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    target_uid: str = Field(min_length=1, max_length=80)
+    template: dict
+    template_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class TrustedBaselineOut(RecordOut):
+    id: UUID
+    cluster: str
+    namespace: str
+    deployment: str
+    target_uid: str
+    template_hash: str
+    registered_by: str
+    created_at: datetime
+
+
+class LiveProposalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    investigation_id: UUID
 
 
 class DecisionRequest(BaseModel):
