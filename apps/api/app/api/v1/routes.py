@@ -44,6 +44,9 @@ from app.schemas.lifecycle import (
     ExecutionOut,
     IntegrationOut,
     InvestigationOut,
+    IncidentTargetOut,
+    IncidentTriggerOut,
+    InvestigationRequestOut,
     VerificationOut,
 )
 from app.services import cost_analyses as billing
@@ -98,7 +101,7 @@ def dashboard(db: Database):
             select(func.count()).select_from(Incident).where(Incident.status == "open")
         ),
         "cost_autopsy": latest.report if latest else cost_summary(),
-        "mode": "deterministic-demo",
+        "mode": "deterministic-demo" if settings.local_demo_enabled else "local-operations",
     }
 
 
@@ -130,7 +133,7 @@ def create_incident(
     )
 
 
-@router.get("/incident-targets")
+@router.get("/incident-targets", response_model=list[IncidentTargetOut])
 def incident_targets():
     return [
         {
@@ -144,13 +147,14 @@ def incident_targets():
     ]
 
 
-@router.get("/incidents/{incident_id}/triggers")
+@router.get("/incidents/{incident_id}/triggers", response_model=list[IncidentTriggerOut])
 def incident_triggers(incident_id: UUID, db: Database):
     workflow.require_incident(db, incident_id)
     triggers = db.scalars(
         select(IncidentTrigger)
         .where(IncidentTrigger.incident_id == incident_id)
-        .order_by(IncidentTrigger.reported_at, IncidentTrigger.id)
+        .order_by(IncidentTrigger.reported_at.desc(), IncidentTrigger.id.desc())
+        .limit(100)
     ).all()
     return [
         {
@@ -165,13 +169,16 @@ def incident_triggers(incident_id: UUID, db: Database):
     ]
 
 
-@router.get("/incidents/{incident_id}/investigation-requests")
+@router.get(
+    "/incidents/{incident_id}/investigation-requests", response_model=list[InvestigationRequestOut]
+)
 def incident_requests(incident_id: UUID, db: Database):
     workflow.require_incident(db, incident_id)
     requests = db.scalars(
         select(InvestigationRequest)
         .where(InvestigationRequest.incident_id == incident_id)
-        .order_by(InvestigationRequest.created_at, InvestigationRequest.id)
+        .order_by(InvestigationRequest.created_at.desc(), InvestigationRequest.id.desc())
+        .limit(100)
     ).all()
     return [
         {
@@ -179,6 +186,9 @@ def incident_requests(incident_id: UUID, db: Database):
             "trigger_id": item.trigger_id,
             "status": item.status,
             "created_at": item.created_at,
+            "claimed_at": item.claimed_at,
+            "attempts": item.attempts,
+            "finished_at": item.finished_at,
         }
         for item in requests
     ]
@@ -521,10 +531,14 @@ def integrations(db: Database):
         },
         {
             "id": "investigation",
-            "status": "available",
-            "mode": "synthetic",
-            "capabilities": ["investigate"],
-            "detail": "Bounded mock provider",
+            "status": "available" if settings.local_demo_enabled else "not_checked",
+            "mode": "synthetic" if settings.local_demo_enabled else "local",
+            "capabilities": ["investigate"]
+            if settings.local_demo_enabled
+            else ["collect_live_evidence"],
+            "detail": "Bounded mock provider"
+            if settings.local_demo_enabled
+            else "Durable read-only investigation worker; source results are retained per investigation",
         },
         {
             "id": "operations",
@@ -536,10 +550,22 @@ def integrations(db: Database):
         *[
             {
                 "id": name,
-                "status": "not_configured",
+                "status": "not_checked"
+                if name == "kubernetes"
+                and settings.sample_target_uid
+                and settings.service_auth_token
+                else "not_configured",
                 "mode": "external",
-                "capabilities": [],
-                "detail": "No adapter configured",
+                "capabilities": ["bounded_read"]
+                if name == "kubernetes"
+                and settings.sample_target_uid
+                and settings.service_auth_token
+                else [],
+                "detail": "MCP reader configured; not probed by this endpoint"
+                if name == "kubernetes"
+                and settings.sample_target_uid
+                and settings.service_auth_token
+                else "No adapter configured",
             }
             for name in ["aws", "kubernetes", "terraform"]
         ],
