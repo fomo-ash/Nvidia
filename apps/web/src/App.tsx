@@ -181,138 +181,22 @@ function IncidentDetails() {
 }
 
 export default function App() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const location = useLocation();
-
-  const links = [
-    { to: "/", label: "Overview", icon: LayoutDashboard },
-    { to: "/incidents", label: "Incidents", icon: AlertTriangle },
-    { to: "/investigations", label: "Investigations", icon: Search },
-    { to: "/approvals", label: "Approvals", icon: CheckCircle2 },
-    { to: "/costs", label: "Cost Autopsy", icon: DollarSign },
-    { to: "/audit", label: "Audit", icon: ScrollText },
-  ];
-
-  const currentRouteName =
-    links.find(l => (l.to === "/" ? location.pathname === "/" : location.pathname.startsWith(l.to)))?.label ??
-    "Console";
-
-  function renderNavLinks() {
-    return (
-      <nav className="sidebar-nav" aria-label="Main navigation">
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            onClick={() => setMobileOpen(false)}
-          >
-            <Icon size={16} />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-      </nav>
-    );
-  }
-
-  return (
-    <div className="shell">
-      {/* Desktop Fixed Sidebar */}
-      <aside className="sidebar-desktop">
-        <div className="brand-section">
-          <div className="brand">
-            <ShieldCheck className="brand-logo-icon" size={20} />
-            <span>FIX</span>PROOF
-          </div>
-        </div>
-        <p className="brand-subtitle">Autonomous Infrastructure Guard</p>
-
-        <OperatorSessionBar />
-
-        {renderNavLinks()}
-
-        <footer className="sidebar-footer">
-          <div>Local operator console</div>
-          <div className="state-muted">v0.1.0 · Phase 7 acceptance</div>
-        </footer>
-      </aside>
-
-      {/* Mobile Drawer Backdrop */}
-      {mobileOpen && (
-        <div
-          className="mobile-drawer-backdrop"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Mobile Drawer */}
-      <div className={`mobile-drawer ${mobileOpen ? "open" : ""}`} role="dialog" aria-modal="true" aria-label="Navigation drawer">
-        <div className="brand-section">
-          <div className="brand">
-            <ShieldCheck className="brand-logo-icon" size={20} />
-            <span>FIX</span>PROOF
-          </div>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
-            style={{ padding: "4px" }}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <OperatorSessionBar />
-        {renderNavLinks()}
-      </div>
-
-      {/* Main Content Area */}
-      <div className="main-wrapper">
-        <header className="top-header">
-          <button
-            type="button"
-            className="mobile-nav-trigger"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu size={18} />
-          </button>
-
-          <div className="top-breadcrumbs">
-            <span>FixProof</span>
-            <ChevronRight size={14} className="state-muted" />
-            <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>
-              {currentRouteName}
-            </span>
-          </div>
-
-          <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-            Environment: <span className="mono">local-kind</span>
-          </div>
-        </header>
-
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/incidents" element={<Incidents />} />
-            <Route path="/incidents/:incidentId" element={<IncidentDetails />} />
-            <Route path="/investigations" element={<InvestigationsList />} />
-            <Route path="/approvals" element={<ApprovalsList />} />
-            <Route path="/costs" element={<CostAutopsyView />} />
-            <Route path="/audit" element={<AuditEventsList />} />
-            <Route
-              path="*"
-              element={
-                <div className="panel">
-                  <h1>Page not found</h1>
-                  <NavLink to="/">Return to overview</NavLink>
-                </div>
-              }
-            />
-          </Routes>
-        </main>
-      </div>
-    </div>
-  );
+  const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/audit", "Audit"]];
+  return <div className="shell">
+    <aside>
+      <div className="brand">FIX<span>PROOF</span></div><p>Local operations assistant</p>
+      <nav aria-label="Main navigation">{links.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}</nav>
+      <footer>Local operator console<br />Billing samples labeled synthetic</footer>
+    </aside>
+    <main><Routes>
+      <Route path="/" element={<Overview />} />
+      <Route path="/incidents" element={<Incidents />} />
+      <Route path="/incidents/:incidentId" element={<IncidentDetails />} />
+      <Route path="/investigations" element={<Placeholder title="Investigation timeline" />} />
+      <Route path="/approvals" element={<Placeholder title="Remediation approval" />} />
+      <Route path="/costs" element={<Placeholder title="Cloud Cost Autopsy" />} />
+      <Route path="/audit" element={<Placeholder title="Audit history" />} />
+      <Route path="*" element={<><h1>Page not found</h1><NavLink to="/">Return to overview</NavLink></>} />
+    </Routes></main>
+  </div>;
 }
