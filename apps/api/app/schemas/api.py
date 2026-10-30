@@ -189,6 +189,7 @@ class ChatMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     message: str = Field(min_length=1, max_length=2000)
     session_id: str = Field(default="default", max_length=128)
+    incident_id: str | None = Field(default=None, max_length=128)
 
 
 class ChatMessageOut(BaseModel):

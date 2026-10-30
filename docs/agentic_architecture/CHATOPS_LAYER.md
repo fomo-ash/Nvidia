@@ -123,3 +123,4 @@ The frontend integration lives directly within the **Incident Details & Investig
 - **Prompt Injection Defense**: Logs and raw telemetry strings inside the evidence bundle are wrapped in untrusted data delimiters.
 - **Audit Logging**: Every chat query and response is recorded in the append-only `audit_events` table under action `chat_query`, ensuring full compliance and operator accountability.
 - **Fail-Closed Fallback**: If Nebius or the inference provider is unreachable or returns malformed text, the chat responds with a clean advisory notice: *"Model analysis is temporarily unavailable. Review the retained source observations directly."*
+

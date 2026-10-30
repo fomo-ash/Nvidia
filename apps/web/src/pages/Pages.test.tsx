@@ -7,6 +7,7 @@ import InvestigationsList from "./InvestigationsList";
 import ApprovalsList from "./ApprovalsList";
 import AuditEventsList from "./AuditEventsList";
 import CostAutopsyView from "./CostAutopsyView";
+import AgentChatPage from "./AgentChatPage";
 
 function renderWithProviders(ui: React.ReactNode, authenticated = true) {
   if (authenticated) {
@@ -139,5 +140,24 @@ describe("secondary pages suite", () => {
     expect((await screen.findAllByText("$3,200.00")).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("$600.00").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/2400 × 0.25/)).toBeTruthy();
+  });
+
+  it("renders AgentChatPage unauthenticated state", () => {
+    renderWithProviders(<AgentChatPage />, false);
+    expect(screen.getByText(/An operator session is required to converse with the FixProof diagnostic agent/)).toBeTruthy();
+  });
+
+  it("renders AgentChatPage authenticated with placeholder prompts", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      })
+    );
+    renderWithProviders(<AgentChatPage />, true);
+    expect(await screen.findByText("FixProof AI Diagnostics Assistant")).toBeTruthy();
+    expect(screen.getByText("What caused the degradation?")).toBeTruthy();
+    expect(screen.getByText("FixProof Agent Active")).toBeTruthy();
   });
 });
