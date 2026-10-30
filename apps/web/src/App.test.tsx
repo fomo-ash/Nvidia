@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { AuthProvider } from "./context/AuthContext";
 import type { components } from "./services/schema";
 
 const dashboard: components["schemas"]["DashboardOut"] = {
@@ -15,17 +16,30 @@ const dashboard: components["schemas"]["DashboardOut"] = {
   },
 };
 
-function mount(path = "/") {
+function mount(path = "/", authenticated = false) {
+  if (authenticated) {
+    sessionStorage.setItem("fixproof_csrf", "mock-csrf-token");
+  } else {
+    sessionStorage.removeItem("fixproof_csrf");
+  }
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></QueryClientProvider>);
+  render(
+    <QueryClientProvider client={client}>
+      <AuthProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+        </MemoryRouter>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
 }
 
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); sessionStorage.clear(); });
 
 describe("operations console", () => {
   it("shows loading then API-backed costs with explicit sample and estimate labels", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => dashboard }));
-    mount();
+    mount("/", true);
     expect(screen.getByRole("status").textContent).toContain("Loading");
     expect(await screen.findByText("$2,450.00")).toBeTruthy();
     expect(screen.getByText("$525.00")).toBeTruthy();
@@ -102,7 +116,7 @@ describe("operations console", () => {
 
   it("shows a recoverable overview error and unknown-route fallback", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    mount();
+    mount("/", true);
     expect(await screen.findByRole("alert")).toBeTruthy();
     cleanup();
     mount("/missing");

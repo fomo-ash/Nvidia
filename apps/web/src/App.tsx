@@ -2,14 +2,32 @@ import { NavLink, Route, Routes, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./services/api";
 import IncidentReport, { IncidentProgress } from "./IncidentReport";
+import OperatorSessionBar from "./components/OperatorSessionBar";
+import { useAuth } from "./context/AuthContext";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 function Overview() {
+  const { isAuthenticated } = useAuth();
   const query = useQuery({
     queryKey: ["dashboard"],
     queryFn: ({ signal }) => api("/api/v1/dashboard/summary", { signal }),
+    enabled: isAuthenticated,
   });
+
+  if (!isAuthenticated) {
+    return (
+      <section className="panel" aria-label="Sign in required">
+        <h1>Operations overview</h1>
+        <p className="sub">Evidence-led operations.</p>
+        <div className="state state-muted">
+          <p>An operator session is required to inspect live cluster status and metrics.</p>
+          <p>Please click <b>Sign In</b> in the sidebar or go to the <b>Incidents</b> tab to authenticate with your operator secret.</p>
+        </div>
+      </section>
+    );
+  }
+
   if (query.isPending) return <p role="status">Loading operational data...</p>;
   if (query.isError) return <div role="alert"><p>Unable to reach FixProof API.</p><button onClick={() => void query.refetch()}>Retry</button></div>;
   const data = query.data;
@@ -63,6 +81,7 @@ export default function App() {
   return <div className="shell">
     <aside>
       <div className="brand">FIX<span>PROOF</span></div><p>Local operations assistant</p>
+      <OperatorSessionBar />
       <nav aria-label="Main navigation">{links.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}</nav>
       <footer>Local operator console<br />Billing samples labeled synthetic</footer>
     </aside>
