@@ -17,15 +17,45 @@ export function VerificationSummary({ verification }: { verification: Verificati
   const measurements = Array.isArray(observations.measurements) ? observations.measurements as Array<Record<string, unknown>> : [];
   const reason = typeof observations.reason === "string" ? observations.reason : "No additional verification reason was recorded.";
   const heading = verification.status === "passed" ? "Recovery verified" : verification.status === "failed" ? "Recovery not verified" : verification.status === "inconclusive" ? "Recovery inconclusive" : "Recovery measurement pending";
+  
+  const rollout = measurements.find(m => m.name === "rollout_available");
+  const probes = measurements.filter(m => typeof m.name === "string" && m.name.startsWith("health_probe"));
+  const traffic = measurements.find(m => m.name === "work_requests" || m.name === "traffic_total");
+  const errorRate = measurements.find(m => m.name === "error_ratio" || m.name === "error_requests_5xx");
+
   return <section className={`verification verification-${verification.status}`} aria-label="Recovery verification">
-    <h5>{heading}</h5>
+    <div className="verification-header">
+      <h5>{heading}</h5>
+      <span className={`badge badge-${verification.status}`}>{verification.status}</span>
+    </div>
     <p>{verification.status === "passed" ? "Fresh rollout, health, and traffic measurements passed." : verification.status === "pending" ? "A successful patch alone does not establish recovery. Fresh measurements are still being collected." : reason}</p>
-    {measurements.length > 0 && <table>
-      <caption>Fresh recovery measurements</caption>
-      <thead><tr><th>Measurement</th><th>Actual</th><th>Required</th><th>Observed</th></tr></thead>
-      <tbody>{measurements.map((item, index) => <tr key={`${String(item.name)}-${index}`}><td>{String(item.name)}</td><td>{String(item.value)}</td><td>{String(item.operator)} {String(item.threshold)}</td><td>{item.observed_at ? new Date(String(item.observed_at)).toLocaleString() : "unknown"}</td></tr>)}</tbody>
-    </table>}
-    <small>Verdict recorded {verification.completed_at ? new Date(verification.completed_at).toLocaleString() : "in progress"}.</small>
+
+    <div className="verification-gates-grid">
+      <div className="gate-card">
+        <span className="eyebrow">Gate 1: Rollout</span>
+        <strong>{rollout ? `${rollout.value} / ${rollout.threshold}` : "Checking…"}</strong>
+        <small>{rollout && Number(rollout.value) >= Number(rollout.threshold) ? "✓ Replicas available" : "Pending"}</small>
+      </div>
+      <div className="gate-card">
+        <span className="eyebrow">Gate 2: Functional Probes</span>
+        <strong>{probes.length > 0 ? `${probes.filter(p => p.value === 200).length} / 3 passed` : "Checking…"}</strong>
+        <small>{probes.length === 3 && probes.every(p => p.value === 200) ? "✓ 3x 200 OK" : "Pending / probing"}</small>
+      </div>
+      <div className="gate-card">
+        <span className="eyebrow">Gate 3: 60s Traffic Window</span>
+        <strong>{traffic ? `${traffic.value} reqs` : "Checking…"}</strong>
+        <small>{errorRate ? `5xx error rate: ${(Number(errorRate.value) * 100).toFixed(1)}%` : "Sampling metrics…"}</small>
+      </div>
+    </div>
+
+    {measurements.length > 0 && <div className="table-responsive">
+      <table>
+        <caption>Fresh recovery measurements</caption>
+        <thead><tr><th>Measurement</th><th>Source</th><th>Actual</th><th>Required</th><th>Observed</th></tr></thead>
+        <tbody>{measurements.map((item, index) => <tr key={`${String(item.name)}-${index}`}><td><b>{String(item.name)}</b></td><td><small>{String(item.source ?? "mcp")}</small></td><td><code>{String(item.value)}</code></td><td><code>{String(item.operator)} {String(item.threshold)}</code></td><td>{item.observed_at ? new Date(String(item.observed_at)).toLocaleTimeString() : "unknown"}</td></tr>)}</tbody>
+      </table>
+    </div>}
+    <small className="state-muted">Verdict recorded {verification.completed_at ? new Date(verification.completed_at).toLocaleString() : "in progress"}.</small>
   </section>;
 }
 
