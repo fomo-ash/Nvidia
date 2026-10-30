@@ -37,15 +37,17 @@ class InvestigationResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    investigation_id: UUID
     incident_id: str
     message: str
     session_id: str = "default"
+    investigation_id: UUID | None = None
+    evidence: list[EvidenceReference] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
-    investigation_id: UUID
     incident_id: str
     response: str
+    session_id: str
     citations: list[str] = Field(default_factory=list)
+    investigation_id: UUID | None = None
     session_id: str

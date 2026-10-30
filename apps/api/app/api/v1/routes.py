@@ -38,6 +38,8 @@ from app.schemas.api import (
     TrustedBaselineOut,
     LiveProposalRequest,
     TimelineOut,
+    ChatMessageRequest,
+    ChatMessageOut,
 )
 from app.schemas.lifecycle import (
     ApprovalOut,
@@ -214,6 +216,94 @@ def investigate(incident_id: UUID, db: Database, actor: Operator, key: Key = Non
         {},
         lambda: workflow.investigate(db, incident_id, actor=actor),
         RecommendationOut,
+    )
+
+
+@router.post("/incidents/{incident_id}/chat", response_model=ChatMessageOut)
+def chat_incident(
+    incident_id: UUID,
+    payload: ChatMessageRequest,
+    db: Database,
+    actor: Operator,
+):
+    """Grounded interactive chat with incident context and retained evidence."""
+    workflow.require_incident(db, incident_id)
+    # Collect all retained evidence items for this incident
+    investigations = db.scalars(
+        select(Investigation).where(Investigation.incident_id == incident_id)
+    ).all()
+    inv_ids = [inv.id for inv in investigations]
+    evidence_items = []
+    if inv_ids:
+        evidence_items = db.scalars(
+            select(EvidenceItem).where(EvidenceItem.investigation_id.in_(inv_ids))
+        ).all()
+
+    # Call AI service chat endpoint with service auth
+    evidence_payload = [
+        {
+            "id": str(item.id),
+            "observed_at": item.observed_at.isoformat(),
+            "content_hash": item.content_hash,
+            "source": item.source,
+            "fact": item.fact,
+            "raw_data": item.raw_data or {},
+            "trusted": False,
+            "mode": "live",
+        }
+        for item in evidence_items
+    ]
+
+    import urllib.request
+    import json
+
+    ai_url = f"{settings.ai_service_url}/chat"
+    req_body = json.dumps({
+        "incident_id": str(incident_id),
+        "session_id": payload.session_id,
+        "message": payload.message,
+        "evidence": evidence_payload,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        ai_url,
+        data=req_body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.service_auth_token}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            response_text = data.get("response", "")
+            citations = data.get("citations", [])
+    except Exception:
+        response_text = "AI investigation assistant is currently unavailable. Please review the retained observations directly."
+        citations = []
+
+    # Record append-only audit event
+    workflow.audit(
+        db,
+        "incident",
+        incident_id,
+        "chat_query",
+        actor=actor.id,
+        details={
+            "session_id": payload.session_id,
+            "message": payload.message,
+            "response": response_text[:500],
+            "citations": citations,
+        },
+    )
+
+    return ChatMessageOut(
+        incident_id=str(incident_id),
+        response=response_text,
+        citations=citations,
+        session_id=payload.session_id,
     )
 
 

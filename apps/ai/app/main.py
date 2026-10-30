@@ -96,15 +96,19 @@ async def investigate_incident(body: InvestigationRequest) -> InvestigationRespo
 @app.post("/chat", response_model=ChatResponse, tags=["ChatOps"])
 async def chat_with_incident(body: ChatRequest) -> ChatResponse:
     """Interactive conversational ChatOps endpoint with evidence grounding."""
-    config = {"configurable": {"thread_id": str(body.investigation_id)}}
-    state = await investigation_workflow.aget_state(config)
-    values = state.values if state else {}
-    if not values or values.get("incident_id") != body.incident_id:
-        raise HTTPException(404, "Investigation not found for this incident")
-    evidence = values.get("evidence", [])
+    evidence = body.evidence
+    # If evidence not supplied in request body, attempt fallback to stategraph
+    if not evidence and body.investigation_id:
+        config = {"configurable": {"thread_id": str(body.investigation_id)}}
+        state = await investigation_workflow.aget_state(config)
+        values = state.values if state else {}
+        if not values or values.get("incident_id") != body.incident_id:
+            raise HTTPException(404, "Investigation not found for this incident")
+        evidence = values.get("evidence", [])
 
+    inv_prefix = f"{body.investigation_id}:" if body.investigation_id else ""
     response_text, citations = await execute_chat(
-        session_id=f"{body.investigation_id}:{body.session_id}",
+        session_id=f"{inv_prefix}{body.incident_id}:{body.session_id}",
         incident_id=body.incident_id,
         user_message=body.message,
         available_evidence=evidence,
