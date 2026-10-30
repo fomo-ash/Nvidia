@@ -1,18 +1,5 @@
-import { useState } from "react";
-import { NavLink, Route, Routes, useParams, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import {
-  LayoutDashboard,
-  AlertTriangle,
-  Search,
-  CheckCircle2,
-  DollarSign,
-  ScrollText,
-  Menu,
-  X,
-  ShieldCheck,
-  ChevronRight,
-} from "lucide-react";
 import { api } from "./services/api";
 import IncidentReport, { IncidentProgress } from "./IncidentReport";
 import OperatorSessionBar from "./components/OperatorSessionBar";
@@ -181,21 +168,22 @@ function IncidentDetails() {
 }
 
 export default function App() {
-  const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/audit", "Audit"]];
+  const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/costs", "Costs"], ["/audit", "Audit"]];
   return <div className="shell">
     <aside>
       <div className="brand">FIX<span>PROOF</span></div><p>Local operations assistant</p>
       <nav aria-label="Main navigation">{links.map(([to, label]) => <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>)}</nav>
+      <OperatorSessionBar />
       <footer>Local operator console<br />Billing samples labeled synthetic</footer>
     </aside>
     <main><Routes>
       <Route path="/" element={<Overview />} />
       <Route path="/incidents" element={<Incidents />} />
       <Route path="/incidents/:incidentId" element={<IncidentDetails />} />
-      <Route path="/investigations" element={<Placeholder title="Investigation timeline" />} />
-      <Route path="/approvals" element={<Placeholder title="Remediation approval" />} />
-      <Route path="/costs" element={<Placeholder title="Cloud Cost Autopsy" />} />
-      <Route path="/audit" element={<Placeholder title="Audit history" />} />
+      <Route path="/investigations" element={<InvestigationsList />} />
+      <Route path="/approvals" element={<ApprovalsList />} />
+      <Route path="/costs" element={<CostAutopsyView />} />
+      <Route path="/audit" element={<AuditEventsList />} />
       <Route path="*" element={<><h1>Page not found</h1><NavLink to="/">Return to overview</NavLink></>} />
     </Routes></main>
   </div>;

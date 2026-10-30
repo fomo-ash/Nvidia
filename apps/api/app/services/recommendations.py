@@ -43,8 +43,12 @@ def audit(
     from app.services.discord_notifications import enqueue
 
     event = AuditEvent(
-        id=uuid4(), entity_type=entity_type, entity_id=entity_id,
-        action=action, actor=actor, details=details,
+        id=uuid4(),
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=action,
+        actor=actor,
+        details=details,
     )
     db.add(event)
     enqueue(db, event)
