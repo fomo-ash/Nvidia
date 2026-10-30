@@ -50,6 +50,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat Global
+         * @description Grounded interactive chat endpoint for the dedicated Chat page.
+         */
+        post: operations["chat_global_api_v1_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/cost-analyses": {
         parameters: {
             query?: never;
@@ -250,6 +270,26 @@ export interface paths {
         get: operations["incident_api_v1_incidents__incident_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{incident_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat Incident
+         * @description Grounded interactive chat with incident context and retained evidence.
+         */
+        post: operations["chat_incident_api_v1_incidents__incident_id__chat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -767,6 +807,29 @@ export interface components {
             };
             /** Template Hash */
             template_hash: string;
+        };
+        /** ChatMessageOut */
+        ChatMessageOut: {
+            /** Citations */
+            citations?: string[];
+            /** Incident Id */
+            incident_id: string;
+            /** Response */
+            response: string;
+            /** Session Id */
+            session_id: string;
+        };
+        /** ChatMessageRequest */
+        ChatMessageRequest: {
+            /** Incident Id */
+            incident_id?: string | null;
+            /** Message */
+            message: string;
+            /**
+             * Session Id
+             * @default default
+             */
+            session_id: string;
         };
         /** CostAnalysisCreate */
         CostAnalysisCreate: {
@@ -1648,6 +1711,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditEventOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_global_api_v1_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageOut"];
                 };
             };
             /** @description Unauthorized */
@@ -2603,6 +2735,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IncidentOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_incident_api_v1_incidents__incident_id__chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatMessageOut"];
                 };
             };
             /** @description Unauthorized */
