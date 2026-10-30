@@ -3,6 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "./services/api";
 import IncidentReport, { IncidentProgress } from "./IncidentReport";
 import OperatorSessionBar from "./components/OperatorSessionBar";
+import InvestigationsList from "./pages/InvestigationsList";
+import ApprovalsList from "./pages/ApprovalsList";
+import AuditEventsList from "./pages/AuditEventsList";
+import CostAutopsyView from "./pages/CostAutopsyView";
 import { useAuth } from "./context/AuthContext";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -72,10 +76,6 @@ function IncidentDetails() {
   return <><h1>Incident details</h1><p><NavLink to="/incidents">Back to reports and sign in</NavLink></p>{incidentId && <IncidentProgress incidentId={incidentId} />}</>;
 }
 
-function Placeholder({ title }: { title: string }) {
-  return <><h1>{title}</h1><section className="panel"><p>This view is planned. The current demo supports incident investigation and approval through the API documentation.</p></section></>;
-}
-
 export default function App() {
   const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/costs", "Cost Autopsy"], ["/audit", "Audit"]];
   return <div className="shell">
@@ -89,10 +89,10 @@ export default function App() {
       <Route path="/" element={<Overview />} />
       <Route path="/incidents" element={<Incidents />} />
       <Route path="/incidents/:incidentId" element={<IncidentDetails />} />
-      <Route path="/investigations" element={<Placeholder title="Investigation timeline" />} />
-      <Route path="/approvals" element={<Placeholder title="Remediation approval" />} />
-      <Route path="/costs" element={<Placeholder title="Cloud Cost Autopsy" />} />
-      <Route path="/audit" element={<Placeholder title="Audit history" />} />
+      <Route path="/investigations" element={<InvestigationsList />} />
+      <Route path="/approvals" element={<ApprovalsList />} />
+      <Route path="/costs" element={<CostAutopsyView />} />
+      <Route path="/audit" element={<AuditEventsList />} />
       <Route path="*" element={<><h1>Page not found</h1><NavLink to="/">Return to overview</NavLink></>} />
     </Routes></main>
   </div>;
