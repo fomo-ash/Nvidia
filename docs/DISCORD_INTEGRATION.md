@@ -1,5 +1,12 @@
 # Discord channel updates and read-only commands
 
+> [!NOTE]
+> Detailed technical guides and sub-specifications are organized in the [`docs/discord/`](discord/README.md) directory:
+> - [Architecture & Security Overview](discord/README.md)
+> - [Webhooks & Alert Pipeline](discord/WEBHOOKS_AND_ALERTS.md)
+> - [Slash Commands Reference](discord/SLASH_COMMANDS.md)
+> - [Step-by-Step Setup Guide](discord/SETUP_AND_CONFIGURATION.md)
+
 The integration is optional. No Discord credentials are committed. The API remains the sole authority for incident state, proposals, approvals, execution and verification; Discord commands cannot perform any of those writes.
 
 ## Configure
