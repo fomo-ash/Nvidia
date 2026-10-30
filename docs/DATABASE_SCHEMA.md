@@ -1,64 +1,48 @@
 # Database schema
 
-Migration `0007_discord_deliveries` adds one delivery record per selected committed live audit event, with state, attempts, next availability, claim time, Discord message ID and a sanitized error kind. No webhook URL, bot token or message body is persisted. Delivery rows do not grant any incident, approval or execution authority. See [Discord integration](DISCORD_INTEGRATION.md).
+Alembic owns schema creation. PostgreSQL stores deployed state; SQLite supports isolated tests and single-worker development. Startup migrates rather than calling ORM `create_all`.
 
-`trusted_baselines` stores the operator-registered, append-only healthy pod template and SHA-256 for one registered Deployment UID, along with registrar and time. Migration `0006_trusted_baseline` adds the table and database update/delete guards. Live proposal bindings use the existing `recommendations` and `approvals` tables; the proposal JSON includes baseline ID, current UID/resourceVersion, bad/good hashes, analysis hash and retained evidence IDs/hashes.
+## Migrations
 
-Alembic owns schema creation. Startup never uses ORM create_all. PostgreSQL is the deployment database; SQLite supports isolated tests and local development.
-
-## Migration history
-
-- 0001_initial: incidents, recommendations, and audit events.
-- 0002_proposal_integrity: recommendation digests, expiry, retained JSON evidence, and version/state constraints.
-- 0003_domain_lifecycle: normalized lifecycle/billing records, durable idempotency, indexes, and database audit guards.
-
-The Phase 2 migration preserves incident/recommendation IDs, proposal hashes, original evidence JSON, and historical audit events. It imports existing evidence into investigations/evidence_items. It does not invent approval actors or timestamps: historical approved status without a new approval record cannot authorize execution. Backfill runs during an online migration; offline SQL is a schema preview, not a complete data-migration deployment artifact.
-
-## Tables
-
-| Table | Purpose and constraints |
+| Revision | Scope |
 |---|---|
-| incidents | UUID identity, severity/summary, indexed status, creation time |
-| investigations | Incident FK, provider/mode, bounded investigation result, status constraint |
-| evidence_items | Investigation FK/index, source, observation time, fact, content hash, untrusted label |
-| recommendations | Incident FK, optional unique investigation FK, unique incident/version, positive version, lifecycle state, exact proposal snapshot/digest/expiry |
-| approvals | One decision per recommendation, version/digest, server actor, decision time and expiry; approved decisions require digest/expiry |
-| executions | One attempt per recommendation/approval, copied action/target/parameters/digest, actor, adapter, pending/succeeded/failed outcome and timestamps |
-| verification_results | One verification attempt per execution, separate outcome and attributable observations, timestamps |
-| cost_analyses | Selected periods, USD/synthetic mode, immutable application-level report snapshot, indexed creation time |
-| cost_records | Analysis FK/index, source period/resource/service/region/tags, nonnegative Numeric(20,6) amount and creation time |
-| idempotency_records | Unique actor/key, canonical request fingerprint, original response/status, creation time |
-| audit_events | Entity reference, server actor, action/details/time; composite entity/time index and append-only database triggers |
+| `0001_initial` | Incidents, recommendations and audit events. |
+| `0002_proposal_integrity` | Proposal digests, version/expiry and state integrity. |
+| `0003_domain_lifecycle` | Normalized evidence, approvals, execution/verification, billing, idempotency and audit guards. |
+| `0004_incident_intake` | Target identity, immutable manual triggers and queued investigation requests. |
+| `0005_live_evidence` | Collection leases, per-attempt runs, redacted source provenance/errors and structured results. |
+| `0006_trusted_baseline` | Append-only independently registered healthy templates. |
+| `0007_discord_deliveries` | Transactional notification delivery state. |
 
-Application routes do not expose edits to reviewed content, decisions, evidence, billing sources, or audit history. SQL UPDATE/DELETE of audit rows is blocked in SQLite and PostgreSQL; PostgreSQL TRUNCATE is also blocked. These guards are not protection against a database administrator who can disable triggers or drop tables.
+Implementation: [migration directory](../apps/api/alembic/versions) and [domain models](../apps/api/app/models/domain.py). Online backfills preserve legacy IDs/evidence/history without inventing approval actors. Offline SQL is a schema preview, not a substitute for online data migration.
 
-## Transactions and concurrency
+## Durable records
 
-Creation, normalized evidence, proposal supersession, review decisions, and cost reports/source rows commit with their audit and idempotency records. PostgreSQL serializes incident-level lifecycle decisions with a row lock. Unique constraints and conditional updates provide additional protection.
+| Tables | Meaning |
+|---|---|
+| `incidents`, `incident_triggers` | Target, lifecycle/assessment, manual source and server times, deduplication and immutable report history. |
+| `investigation_requests` | Queued/claimed work, token, attempts and completion state. |
+| `investigations`, `evidence_items` | Per-run results and canonical evidence UUIDs, source times, target UID, transport and redacted hashes, payloads and explicit errors. |
+| `trusted_baselines` | Registered healthy template, SHA-256, UID, registrar and time; database update/delete protection. |
+| `recommendations`, `approvals` | Exact reviewed snapshots, unique incident/version, decision actor/hash/version/expiry and one decision per recommendation. |
+| `executions`, `verification_results` | One attempt per recommendation/approval and a separate verification record per execution, with pending/final state and measurements. |
+| `idempotency_records` | Actor/key uniqueness, request fingerprint and original response/status. |
+| `audit_events` | Lifecycle history with database append-only guards. Chat audit durability is separately limited; see ChatOps. |
+| `discord_deliveries` | One delivery per selected audit event; lease, attempts, next availability, message ID and sanitized error kind. No webhook URL, bot token or message body. |
+| `cost_analyses`, `cost_records` | Persisted synthetic USD reports and Numeric/Decimal source amounts. |
 
-Execution and verification first commit a pending claim and its replay response, then invoke their server-side adapter and persist completion in a second transaction. Interrupted operations remain pending and are never automatically invoked again. This prevents duplicate invocation through request retries; it does not promise exactly-once delivery to external infrastructure. Workers, reconciliation, cancellation and recovery policy remain Phase 6 work.
+## Transactions and interruption
 
-SQLite application connections enable foreign keys. PostgreSQL tests use a separate disposable database ending in _test. Migration tests compare schema with ORM metadata, upgrade/downgrade, preserve legacy rows, and import historical evidence.
+Lifecycle writes use transactions and PostgreSQL incident row locks. Conditional updates and unique constraints protect competing decisions and requests. Execution/verification commit a pending claim before external adapters; interrupted calls are not automatically repeated. Pending live executions can be reconciled only by reads and block further execution for that incident.
 
-## Rollback
+Collection leases apply only to read-only work. Expired attempts remain as failed runs, with at most three collection attempts; stale workers cannot overwrite successors. SQLite tests do not establish PostgreSQL multi-worker concurrency guarantees.
 
-Back up/export Phase 2 data before downgrading. Downgrading 0003 removes its normalized lifecycle, billing, and idempotency tables and audit guards. Original recommendation evidence JSON and audit history remain. New execution/verification recommendation states become superseded so the older state constraint remains valid. Downgrade is a compatibility escape hatch, not a lossless rollback of Phase 2 records.
+Discord delivery rows are enqueued with selected live audit events in the same transaction. A rolled-back event sends nothing. The independent worker updates delivery state without approving or executing actions.
 
-## Proposed migrations for the kind incident
+Audit UPDATE/DELETE is blocked in SQLite/PostgreSQL; PostgreSQL TRUNCATE is also guarded. Baseline and trigger guards protect their histories. These are not protections against an administrator who can disable triggers or drop tables. Chat handlers currently do not establish committed audit persistence; see [ChatOps](CHATOPS.md).
 
-Keep `0001`–`0003` and their historical data intact. Add incremental migrations at the phase that first needs each field; test upgrade, downgrade, and legacy-row behavior against an isolated PostgreSQL database.
+## Rollback and retention
 
-1. **Incident intake:** extend `incidents` with registered target cluster/namespace/kind/name/UID, symptom fingerprint, lifecycle, and symptom assessment. Add immutable `incident_triggers` with source (`manual` or later `prometheus`), source/server times, reporter or rule ID, normalized measurements, payload hash, and a unique idempotency key. Existing seeded rows remain labeled synthetic and cannot be promoted to verified target incidents without a new trigger.
-2. **Real evidence:** extend `investigations` and `evidence_items` with target UID, metric/log window, bounded redacted payload or local reference, redaction marker, and per-source collection error. Retain current stable evidence IDs, source/time/hash/trust fields and historical synthetic rows.
-3. **Exact Kubernetes proposal:** extend `recommendations`/`approvals` with expected bad resource version/template hash, trusted desired good template hash, and exact target UID. Preserve existing proposal digest/version/expiry and approval decisions; changed payloads become new versions.
-4. **Real action and measurement:** extend `executions` with preflight snapshot and MCP action metadata, and `verification_results` with fresh rollout, probe, metric window, thresholds, values, and reason. Preserve the current pending-claim/idempotency model. Reconcile interrupted pending operations explicitly; a retry must not repeat an unknown infrastructure effect.
+Back up application data before downgrade. Downgrades can drop newer normalized tables, provenance, claims and findings, and map unsupported states to compatible older values. They are not lossless backups. Do not downgrade or delete the database to reset the sample; use the owned [fixture reset](../infra/kind/README.md#manual-fault-and-reset).
 
-The model never supplies the trusted known-good template. Store its provenance and hash during bootstrap before fault injection. Audit transitions remain append-only, and real evidence retains source and UTC observation times so every recovery verdict can be reconstructed.
-
-## Migration 0005: durable live evidence
-
-`investigation_requests` gains claimed_at, claim_token, attempts and finished_at. `investigations` gains nullable request_id and JSON result, and permits collecting/needs_review alongside completed/failed. `evidence_items` gains nullable transport_id/transport_hash/target_uid/collection_error, bounded raw_data and a redacted marker; all evidence remains untrusted to inference. Legacy rows receive empty/default metadata without invented source observations. PostgreSQL incident trigger TRUNCATE is now blocked.
-
-A worker commits its claim before external reads and uses the token/lease for every source commit and finalization. Expired read-only attempts are retained as failed runs and retried at most three times; a stale worker cannot overwrite its successor. Only one active request per incident is claimed under PostgreSQL row locks. Standalone SQLite supports local single-worker tests; it is not the production concurrency proof.
-
-Downgrade preserves core legacy incident/recommendation history but drops new provenance, claim and result fields and maps collecting/needs_review investigations to failed. Back up before downgrade if live evidence or findings must be retained; do not downgrade the working application merely to reset the fixture. Acceptance tests use an isolated disposable database.
+Tests migrate only an isolated database ending in `_test`. Production administrative roles, retention and recovery procedures remain additional hardening work.

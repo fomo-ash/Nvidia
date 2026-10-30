@@ -1,52 +1,32 @@
-# FixProof AI service
+# AI service
 
-This service runs the advisory investigation graph. It collects bounded evidence through MCP,
-checks whether required source types are present, asks the configured model for causal analysis,
-and returns a `needs_review` result. It has no infrastructure mutation authority.
+The internal AI service exposes strict retained-evidence analysis plus separate legacy graph and conversational paths. It has no approval authority or Kubernetes writer/signing credentials.
 
-## System-1 provider selection
-
-`SYSTEM1_PROVIDER` is an explicit selector:
-
-| Value | Behavior |
+| Endpoint | Role |
 |---|---|
-| `policy` | Default. Makes no outbound System-1 request and checks for trusted live Prometheus and Kubernetes Deployment evidence. |
-| `jev` | Calls TypeSafe Jev only when a non-mock key is configured. If `LAYA_ENABLED=true`, it may next try the compatible HTTP endpoint; otherwise it falls back to policy. |
-| `laya` | Calls `LAYA_BASE_URL/v1/systemone`, validates the complete response, and falls back to policy on any transport or schema failure. |
+| `/analyze` | Stateless structured reasoning over API-retained observations. The durable API worker owns run state. |
+| `/investigate` | Standalone LangGraph investigation with in-memory checkpoints. |
+| `/chat` | Conversational interface used by public API chat routes; current grounding/citation/fallback limitations are documented separately. |
 
-The Compose service named `laya` is a deterministic development compatibility server. It implements
-the request/response protocol but does not package or run the Laya open-weights model. Point
-`LAYA_BASE_URL` at a separately operated model service to use a real compatible deployment.
+The `/analyze` path validates source/UUID/time/size, bounds inference, checks hypothesis citation membership and returns uncertainty/gaps with one advisory enum. A missing or invalid answer cannot authorize a proposal. Public API independently constructs and reviews exact changes.
 
-All remote answers are advisory. The engine validates probability ranges and choice enums, requires
-trusted physical evidence even when a provider reports high sufficiency, and always preserves the
-human-approval requirement for remediation.
+`AI_LLM_PROVIDER` in Compose selects the service's `LLM_PROVIDER`. Nebius uses `NEBIUS_API_KEY`, `NEBIUS_BASE_URL` and `NEBIUS_MODEL`; Groq has separate key/base/model variables. Retained analysis has a maximum 45-second single attempt and 8,192 completion tokens, with two concurrent calls per process. Chat/legacy client settings differ.
 
-## Configuration
+## Optional System-1 advice
 
-```env
-SYSTEM1_PROVIDER=policy
+`SYSTEM1_PROVIDER=policy` is the offline default. `jev` uses the configured provider, optionally tries the compatible endpoint when `LAYA_ENABLED` is true, then policy fallback. `laya` selects `LAYA_BASE_URL/v1/systemone` directly with validated fallback. The bundled Compose Laya service is deterministic compatibility code, not deployed model weights.
 
-# Optional Jev provider
-JEV_API_KEY=
-TYPESAFE_BASE_URL=https://api.typesafe.ai
+Jev/Laya answers remain advisory, require the physical source gate and cannot remove human approval. This engine belongs to the legacy graph; it is not a mandatory stage of the durable worker's `/analyze` call.
 
-# Compatible endpoint, selected directly or as a Jev fallback
-LAYA_ENABLED=false
-LAYA_BASE_URL=http://laya:8000
-LAYA_API_KEY=
+## Development
+
+Use this service's own environment because the Python package name `app` is shared with API/MCP:
+
+```sh
+uv sync --frozen --extra dev
+uv run --frozen --extra dev pytest -q
+uv run --frozen --extra dev ruff check app tests
+uv run --frozen --extra dev ruff format --check app tests
 ```
 
-## Focused verification
-
-From the repository root:
-
-```powershell
-docker compose -f compose.checks.yaml run --build --rm ai-checks
-docker compose build ai laya
-docker compose up -d laya
-Invoke-RestMethod http://localhost:8003/health
-```
-
-The health response identifies the bundled service as
-`deterministic-policy-compatibility`. Stop it with `docker compose stop laya`.
+The service's uv lock is consumed by CI and Docker. [Agent orchestration](../../docs/AGENTIC_ARCHITECTURE.md), [ChatOps limitations](../../docs/CHATOPS.md) and [setup/checks](../../docs/DEVELOPMENT.md) are the maintained references. A healthy process does not prove working provider credentials or live model quality.

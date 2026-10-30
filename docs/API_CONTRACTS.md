@@ -1,104 +1,58 @@
 # API contracts
 
-The optional Discord HTTP interaction endpoint is `POST /discord/interactions`, outside `/api/v1` and omitted from OpenAPI because it accepts Discord's signed envelope rather than a browser API payload. It handles PING and three read-only `/fixproof` subcommands after Ed25519 signature, timestamp, application, guild and role checks. It has no approval or execution path. See [Discord integration](DISCORD_INTEGRATION.md).
+The public generated contract is [apps/api/openapi.json](../apps/api/openapi.json); the browser types are [schema.d.ts](../apps/web/src/services/schema.d.ts). This page explains behavior, not a replacement schema. Application paths below use `/api/v1`.
 
-Live proposal additions: `POST /api/v1/trusted-baselines` registers the exact operator-captured healthy sample template with `target_uid`, `template`, `template_hash` and an idempotency key; `GET /api/v1/trusted-baselines/current` returns metadata without the template. `POST /api/v1/incidents/{incident_id}/proposals` takes `investigation_id` and an idempotency key, and returns a versioned, hashed restore recommendation with retained evidence IDs and exact preconditions. Approval and rejection use the existing recommendation endpoints and operator CSRF session. Live execution is disabled by default; the opt-in execution overlay is documented in [the sequential handoff](SEQUENTIAL_RECOVERY_HANDOFF.md).
+## Identity and retry behavior
 
-With that overlay enabled, `POST /api/v1/recommendations/{id}/execute` requires the exact approved `proposal_hash` and an `Idempotency-Key`. It records one pending claim before invoking the scoped MCP action and rejects further incident execution while any claim is unresolved; a successful response is an execution result only. `POST /api/v1/executions/{id}/reconcile` reads the Deployment for a pending unknown outcome without another patch. Only the matching execution marker and trusted template confirm success; unchanged or drifted state remains pending. `POST /api/v1/executions/{id}/verify` records a separate live recovery verdict from fresh rollout, probe and Prometheus measurements. `GET /api/v1/executions/{id}/verification` returns the stored verdict. Verification is `passed`, `failed`, or `inconclusive` and never auto-closes the incident.
+`POST /session` accepts the configured operator secret, sets the HTTP-only `fixproof_session` cookie and returns a CSRF token. Authenticated non-GET application requests need the allowed browser `Origin` and `X-CSRF-Token`. The local session lasts one hour. Local demo mode is a separate synthetic compatibility boundary, not production identity.
 
-The authenticated manual intake contract is recorded in [Phase 2 intake handoff](PHASE_2_INTAKE_HANDOFF.md). It extends `POST /api/v1/incidents` with the registered sample target, separate immutable trigger and queued investigation request. The legacy synthetic payload remains available in local demo mode. A live incident rejects the synthetic `investigate` route while real collection is pending.
+Manual reports require `Idempotency-Key` in the intake service. Baseline/proposal creation, execution, verification and reconciliation routes declare required keys. Approval/rejection and some synthetic compatibility routes accept optional keys; supply one for deliberate retry handling. Chat does not use the lifecycle idempotency wrapper.
 
-Application routes use /api/v1, UUID identifiers, JSON, and OpenAPI at /openapi.json. The source snapshot is apps/api/openapi.json; frontend definitions are generated into apps/web/src/services/schema.d.ts.
+A key binds an actor to the canonical path/payload. Reusing it with different content returns 409. Exact retries replay the original status/body with `Idempotency-Replayed: true`; that response can remain pending even after later reconciliation, so use GET for current state. No request body can inject an adapter, submit a success verdict or supply collector measurements.
 
-## Identity and errors
+## Incidents and evidence
 
-The current local demo resolves local-demo-user/operator on the server. Request bodies cannot choose an actor. An authenticated identity resolver can later replace this dependency. Read routes allow viewers; writes require operators. LOCAL_DEMO_ENABLED=false disables application access with 401 until authentication is implemented. The current demo is not production authentication.
-
-Missing resources return 404; state/content/idempotency conflicts return 409; viewer writes return 403; invalid requests return 422. Application errors use a string detail; FastAPI validation errors use a detail array. Readiness returns 503 for unavailable/outdated databases without leaking connection details.
-
-## Collections
-
-Incident, investigation, recommendation, approval, execution, evidence, cost-analysis/source-record and audit collections are bounded arrays. Timeline reads are also bounded. Use limit (1–100, default 50) and optional offset (0–100000), or pass the opaque cursor from the X-Next-Cursor response header. Cursor and nonzero offset cannot be combined. Cursors bind to a particular collection/filter. Reads order newest timestamp/UUID first; incident timelines now use this same newest-first order.
-
-Browser CORS permits Idempotency-Key and exposes X-Next-Cursor and Idempotency-Replayed.
-
-## Idempotent writes
-
-All application POST routes accept Idempotency-Key; execute and verify require it. Keys contain 1–128 letters/digits/dot/underscore/colon/hyphen and start with a letter or digit. A key belongs to the server-resolved actor and binds to one route and validated payload. Reusing it for a different request returns 409.
-
-Completed retries replay the original status/body with Idempotency-Replayed: true without another state change or audit event. A replay is the original operation response, not a fresh resource read: use GET for current state. Pending execution/verification claims replay 202 and are not invoked again. Keys currently have no automatic expiry; pending live actions can be reconciled through a read-only endpoint.
-
-## Incident and investigation routes
-
-- GET /dashboard/summary: incident count and latest persisted cost report, or an explicitly synthetic calculated sample fallback before an analysis exists.
-- GET|POST /incidents and GET /incidents/{id}: list, create (201), detail.
-- POST /incidents/{id}/investigate: retain a normalized mock investigation and bounded evidence, create a versioned recommendation, supersede older pending/approved versions. Returns the recommendation (200) for existing client compatibility.
-- GET /incidents/{id}/investigations, GET /investigations, GET /investigations/{id}.
-- GET /investigations/{id}/evidence: normalized IDs, source/time, content hash, trust label.
-- GET /incidents/{id}/evidence: latest retained proposal snapshot, preserving the existing response shape.
-- GET /incidents/{id}/timeline: real audit-derived history.
-- GET /incidents/{id}/recommendations and GET /recommendations/{id}.
-
-Investigation during a pending execution returns 409. Provider output is schema validated before any proposal is superseded.
-
-## Approval, execution and verification
-
-- POST /recommendations/{id}/approve with a reviewed proposal_hash; POST /recommendations/{id}/reject with {}. Both return the recommendation and persist a separate decision.
-- GET /approvals, GET /approvals/{id}, GET /recommendations/{id}/approval.
-- POST /recommendations/{id}/execute with proposal_hash and Idempotency-Key. Creates an execution attempt (201), or replays a pending claim (202).
-- GET /executions and GET /executions/{id}.
-- POST /executions/{id}/verify with {} and Idempotency-Key. Creates a separate verification attempt (201), or replays a pending claim (202).
-- GET /executions/{id}/verification and GET /verifications/{id}.
-
-The state flow is proposed → approved|rejected; approved → executed|execution_failed; executed → verified|verification_failed. Reinvestigation supersedes earlier proposed/approved recommendations. An inconclusive verification leaves the recommendation executed and does not claim recovery.
-
-Execution rechecks current version, content hash, expiry, normalized evidence, action/target/parameter schema, and a matching durable approval. A recommendation has at most one execution attempt; retrying a failed attempt needs a fresh investigation and approval. Verification requires successful execution, a matching server-side adapter, fresh post-execution measurements, source/timestamp attribution, and outcomes consistent with numeric thresholds. Request bodies cannot submit success or measurement results.
-
-The default operations adapter is intentionally unconfigured: execution records failed with mutation_performed=false; it does not run a shell command or change infrastructure. Verification of that failed execution returns 409. Successful/failed/inconclusive verification paths are tested using an injected synthetic adapter; live workload adapters and recovery policy are documented in the guarded execution and verification handoffs.
-
-## Billing and integrations
-
-- POST /cost-analyses now creates a persisted report and source rows (201). An omitted/null/empty-object body uses the labelled sample dataset. An explicit body accepts current_period, previous_period and up to 1000 records.
-- Source records contain period, service, resource, region, a finite nonnegative amount with up to six decimal places, and bounded string tags. All records belong to the selected periods, both periods need data, and previous_period must precede current_period.
-- GET /cost-analyses, GET /cost-analyses/{id}, GET /cost-analyses/{id}/records. A fresh database has no analyses until one is created.
-- GET /integrations reports the local database/mock provider and configuration status. It does not fabricate AWS/Kubernetes/Terraform connectivity or monitoring probes.
-- GET /audit-events exposes append-only history.
-
-Reports label synthetic mode, USD, source periods/totals/drivers, and potential savings assumptions/formula. Sources use Decimal/Numeric arithmetic; reports serialize rounded values. Real billing ingestion, partial-period normalization, credits/multi-currency and advanced cost modeling remain Phase 7 work.
-
-## Health and contract generation
-
-GET /health/live, GET /health/ready and GET /metrics remain outside application identity gating.
-
-After backend contract changes:
-
-```powershell
-python apps/api/scripts/export_openapi.py
-pnpm contracts:generate
-```
-
-Checks: python apps/api/scripts/export_openapi.py --check and pnpm contracts:check. Contract export never connects to a database.
-
-## Proposed kind incident extensions
-
-This is the historical design table; implemented contracts are in `apps/api/openapi.json` and summarized above. Remaining rows describe future work.
-
-| Existing or new route | Target behavior |
+| Routes | Behavior |
 |---|---|
-| `POST /incidents` (extend) | Accept the registered kind Deployment target and symptom with `Idempotency-Key`; record a manual trigger, return an existing open case when the target/symptom fingerprint matches, and queue collection. A submitted report begins `unassessed`, not confirmed. |
-| `GET /incidents/{id}` (extend), `GET /incidents/{id}/triggers` (new) | Expose target UID, lifecycle, symptom assessment, source and server times, and immutable trigger details. |
-| `POST /incidents/{id}/investigate` (extend) | Collect through the one MCP server and return/poll a run linked to immutable real evidence. Preserve the existing synthetic route's compatibility only while its mode is explicitly labeled. |
-| `GET /investigations/{id}`, `/evidence` (extend) | Include target UID, metric window, collection errors, redaction status, and stable evidence IDs for citations. |
-| `GET /recommendations/{id}` (extend) | Include the exact kind target, current bad template/resource version, trusted desired template hash, cited evidence IDs, and proposal hash/expiry. |
-| `POST /recommendations/{id}/approve` (extend) | Keep the existing reviewed `proposal_hash` contract; require the authenticated local operator session and exact target preconditions. |
-| `POST /recommendations/{id}/execute` (extend) | Keep required `Idempotency-Key`, durable claim, and one-attempt rule; call the guarded MCP action only after server and tool preflight. Return an execution record, never a recovery claim. |
-| `POST /executions/{id}/verify` (extend) | Keep required idempotency and separate record; gather fresh rollout, `/healthz`, and Prometheus readings after execution. |
-| `GET /integrations` (extend) | Report actual kind, MCP, Prometheus, and Nebius configuration/readiness separately without exposing secrets or fabricating connectivity. |
+| `GET /dashboard/summary`, `/incidents`, `/incidents/{id}` | Retained incident and dashboard data; separately labeled synthetic compatibility. |
+| `GET /incident-targets` | Configured registered target and UID, not arbitrary cluster discovery. |
+| `POST /incidents` | Authenticated manual report with target ID/UID, symptom and summary; creates/reuses a live case, trigger and queued request. Synthetic creation requires demo mode. |
+| `GET /incidents/{id}/triggers`, `/incidents/{id}/investigation-requests` | Newest bounded trigger and collection-request history. |
+| `GET /investigations`, `/investigations/{id}`, `/incidents/{id}/investigations` | Durable run state, request identity, assessment, source/model gaps and validated analysis where available. |
+| `GET /investigations/{id}/evidence` | Normalized source UUIDs, observation times, redacted payloads, hashes/provenance and collection errors. |
+| `GET /incidents/{id}/timeline`, `/incidents/{id}/recommendations`, `/incidents/{id}/evidence` | Audit-derived history and compatibility proposal/evidence views. For live source observations use the selected investigation's evidence route. |
+| `POST /incidents/{id}/investigate` | Legacy synthetic proposal workflow; live incidents use queued intake and the worker instead. |
 
-Manual intake is required for the MVP; an optional Prometheus detector later uses the same internal intake service and labels its trigger `prometheus`. See [intake specification](INCIDENT_INTAKE.md). Until real collectors and adapters exist, the current endpoints remain synthetic or unavailable as stated above.
+A report is `unassessed` until real readings support `active`, `not_confirmed` or `inconclusive`. A completed collection without requested inference does not imply a diagnosis or approvable proposal. Failed analysis keeps source evidence and cannot supply a valid live proposal.
 
-## Integrated live evidence, migration 0005
+## Exact proposals, decisions and actions
 
-Target, trigger and investigation-request reads now have declared response models. Trigger/request history returns the newest 100 rows. Requests expose claim time, attempts and completion time; the separate worker consumes queued live reports. Investigation reads support live mode and collecting/completed/needs_review/failed, request identity and typed retained analysis. Evidence reads expose transport ID/hash, target UID, bounded redacted raw data, redaction marker and explicit collection error. Canonical evidence IDs remain UUIDs; transport IDs are provenance, never model citation authority.
+| Routes | Behavior |
+|---|---|
+| `POST /trusted-baselines`, `GET /trusted-baselines/current` | Register/read an independently captured healthy template and hash bound to the configured UID. Different replacement content is denied. |
+| `POST /incidents/{id}/proposals` | Uses a selected eligible live investigation and registered baseline; creates an immutable exact recommendation with version/hash/expiry and evidence bindings. |
+| `GET /recommendations/{id}` | Reviewed action snapshot, target, parameters, evidence and status. |
+| `POST /recommendations/{id}/approve` | Requires the exact `proposal_hash`; rechecks current content, expiry, target state and advice. |
+| `POST /recommendations/{id}/reject` | Persists a separate rejection; rejected recommendations cannot execute. |
+| `GET /approvals`, `/approvals/{id}`, `/recommendations/{id}/approval` | Stored decision records. |
+| `POST /recommendations/{id}/execute` | Commits one pending claim before adapter invocation; only the opt-in scoped live adapter can patch a live target. Returns 201 for a final outcome or 202 when unknown/pending. |
+| `GET /executions`, `/executions/{id}` | Durable attempt and outcome. |
+| `POST /executions/{id}/reconcile` | Read-only confirmation of a pending live action using marker/template identity. Unchanged or drifted state remains unresolved; never resubmits a patch. |
+| `POST /executions/{id}/verify` | Separate successful-execution verification request; stored readings yield `passed`, `failed` or `inconclusive`. |
+| `GET /executions/{id}/verification`, `/verifications/{id}` | Stored independent verdict and measurements. |
 
-The worker is not a browser-controlled callback. Clients cannot submit measurements, provider success, target overrides or collector results. Mode/source/time/hash/UID validation and redaction precede persistence. Missing source records contain an error and empty data. Model failure does not replace physical evidence or create recommendations. Existing synthetic proposal/approval/operations contracts are unchanged and cannot authorize a live report. See [the handoff](LIVE_INVESTIGATION_HANDOFF.md).
+Version, hash, expiry, retained evidence and matching approval are rechecked before action. A recommendation has at most one attempt. Any unresolved live execution blocks further incident execution, including a different proposal. Missing/stale telemetry is not recovery. A successful patch alone leaves recovery unverified. The default unconfigured adapter cannot mutate infrastructure.
+
+## Chat, Discord and billing
+
+`POST /chat` and `POST /incidents/{id}/chat` return advisory text and citation lists. Their grounding, run selection, fallback and audit limitations are documented in [ChatOps](CHATOPS.md), separately from the strict analysis contract.
+
+`POST /discord/interactions` is outside `/api/v1` and deliberately omitted from generated OpenAPI. It uses Discord signatures plus application/guild/role checks rather than the operator cookie. It supports retained-data reads only; see [Discord](DISCORD_INTEGRATION.md).
+
+`GET|POST /cost-analyses`, `GET /cost-analyses/{id}` and `/records` persist synthetic cost reports and sources using bounded finite amounts and Decimal arithmetic. Empty input selects the labeled sample dataset; there is no live billing connector. `GET /integrations` reports configuration status, not proof of remote reachability. `GET /audit-events` exposes retained lifecycle audit history.
+
+Outside application identity gating: `/health/live`, `/health/ready`, `/metrics` and session creation. Internal AI `/analyze`, `/investigate`, `/chat` and MCP endpoints use a separate service token; they are not public operator APIs.
+
+## Contract workflow
+
+Run `python apps/api/scripts/export_openapi.py --check` and `pnpm contracts:check` to detect drift. Generate only after intentional implementation changes, using export without `--check` followed by `pnpm contracts:generate`. Documentation-only discrepancies must not be hidden by regenerating a broken contract. [Development](DEVELOPMENT.md) lists isolated checks.
