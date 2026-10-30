@@ -266,12 +266,14 @@ def chat_global(
     import json
 
     ai_url = f"{settings.ai_service_url}/chat"
-    req_body = json.dumps({
-        "incident_id": str(inc_id) if inc_id else "cluster-overview",
-        "session_id": payload.session_id,
-        "message": payload.message,
-        "evidence": evidence_payload,
-    }).encode("utf-8")
+    req_body = json.dumps(
+        {
+            "incident_id": str(inc_id) if inc_id else "cluster-overview",
+            "session_id": payload.session_id,
+            "message": payload.message,
+            "evidence": evidence_payload,
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         ai_url,
@@ -366,12 +368,14 @@ def chat_incident(
     import json
 
     ai_url = f"{settings.ai_service_url}/chat"
-    req_body = json.dumps({
-        "incident_id": str(incident_id),
-        "session_id": payload.session_id,
-        "message": payload.message,
-        "evidence": evidence_payload,
-    }).encode("utf-8")
+    req_body = json.dumps(
+        {
+            "incident_id": str(incident_id),
+            "session_id": payload.session_id,
+            "message": payload.message,
+            "evidence": evidence_payload,
+        }
+    ).encode("utf-8")
 
     req = urllib.request.Request(
         ai_url,
