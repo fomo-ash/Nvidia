@@ -1,35 +1,68 @@
 # Demo runbook
 
-This runbook demonstrates the current synthetic foundation. It does not demonstrate infrastructure execution or recovery.
+Use the owned local sample and keep synthetic compatibility, source collection, patch success and independently measured recovery visibly distinct. No script below authorizes arbitrary infrastructure.
 
-1. Copy .env.example to .env if needed. Run `docker compose up --build --wait --wait-timeout 180`, then `docker compose run --rm api python -m app.seed`.
-2. Open the console at http://localhost:5173 and API docs at http://localhost:8000/docs.
-3. List incidents and select the seeded incident. Its evidence is empty before investigation.
-4. Call POST /api/v1/incidents/{id}/investigate. Review action, target, parameters, retained synthetic evidence, version, expiry, and proposal_hash.
-5. Approve the exact recommendation using POST /api/v1/recommendations/{id}/approve with `{"proposal_hash":"<returned digest>"}`. The current demo records local-demo-user; it does not authenticate an operator.
-6. Repeat approval and confirm 409. Reinvestigate the incident: version increments, the old record becomes superseded, and a fresh digest must be reviewed.
-7. Inspect the incident timeline and audit list. Entries represent actual API decisions rather than a fabricated recovery.
-8. Create a sample report with POST /api/v1/cost-analyses and body {} (201), then GET /api/v1/cost-analyses/{id} and /records to inspect retained sources. October total is $2,450, September $1,200, increase $1,250 (104.17%). Compute contributes $900 of the increase; storage contributes $350. Estimated savings are $525 = $2,100 eligible compute cost × 25%, assuming cost scales with capacity and health remains acceptable.
-9. Open Grafana's FixProof API foundation dashboard. It shows API-process scrape health and memory, not incident recovery metrics.
-10. Run `python scripts/smoke.py` for the automated HTTP equivalent (it creates its own synthetic incident). Stop with `docker compose down`; data is retained.
+## Read-only investigation demo
 
-The next real demo must introduce a monitored workload fault, gather attributable evidence, test a bounded fix where practical, obtain approval, execute through a controlled adapter, and retain independent before/after measurements. Failed tests and verification must remain visible.
+Follow [setup](DEVELOPMENT.md#environment-and-startup), then:
 
-For the Phase 2 lifecycle contract, investigate/approve a fresh proposal and call POST /api/v1/recommendations/{id}/execute with the reviewed proposal_hash and a unique Idempotency-Key header. The default adapter returns a persisted failed attempt with mutation_performed=false; this is the expected unavailable result, not a successful fix. Repeat the exact request/key and confirm the same execution ID is replayed. GET /executions/{id} retains that outcome; verification of the failed attempt returns 409. Tests inject synthetic adapters to validate successful, failed and inconclusive independent verification paths. Do not present those test doubles as a live recovery demonstration.
+1. Confirm the owned fixture UID/template and functional health with `python3.12 scripts/kind_fixture.py status`.
+2. Use `python3.12 scripts/kind_fixture.py fault` to inject the controlled configuration fault. Allow a complete fresh minute of traffic; the fixture verifier uses a 75-second rollout/scrape allowance.
+3. Sign in to the console and report the exact registered target. A report is not yet a confirmed cause.
+4. Inspect queue/run state, retained source UUIDs/times, metric counts and probe readings. Show `/healthz` failing separately from `/readyz` remaining ready. Missing sources or model gaps require review.
+5. Inspect the validated Nemotron hypotheses and their retained evidence. Show model and provider metadata without displaying credentials. Do not use ChatOps canned text as proof.
+6. Reset with `python3.12 scripts/kind_fixture.py reset` when finished.
 
-## Planned MVP acceptance run
+`python3.12 scripts/smoke_investigation.py` automates a real fault/report/model/persistence check and restarts API/worker. It resets the owned sample in `finally` and saves a private receipt. It requires live credentials and creates incident history; it is not a credential-free unit test.
 
-These are release steps to implement, not commands that exist today. The [initial incident](INITIAL_INCIDENT.md) defines the fault and thresholds; [incident intake](INCIDENT_INTAKE.md) defines the reporting contract.
+## Exact proposal and guarded restore
 
-1. From a clean checkout, start Compose, create the pinned kind cluster, deploy the known-good sample app, and register its trusted pod template. Confirm API, MCP, kind, Prometheus, and Nebius readiness without exposing credentials.
-2. Generate baseline traffic and verify `/healthz` and sample metrics. Inject `FAIL_MODE=on` as a new Deployment revision; confirm functional failure and a 60-second window with at least 20 requests and more than 20% 5xx.
-3. Report the exact registered workload as the local operator. Inspect retained metric, rollout, pod, event, bounded log, and direct-probe evidence with source times/IDs. Confirm Nemotron's diagnosis cites only stored evidence and states gaps.
-4. Review and explicitly approve the exact restore proposal. Execute once through MCP. Retry the same idempotency key and confirm no second mutation. Inspect the audit, preflight snapshot, and Kubernetes revision.
-5. Verify against a fresh restored rollout, three successful `/healthz` probes, and a post-action 60-second window with at least 20 requests and less than 1% 5xx. The report must show measured readings and timestamps before saying `verified`.
-6. Repeat from reset. Reject a proposal and show denied execution. Also demonstrate a patch that does not recover the app, or missing metrics, producing `verification_failed` or `inconclusive` rather than success.
+Before granting writer access, inspect the registered baseline, source gaps, action preconditions and denial tests. Keep `LIVE_EXECUTION_ENABLED=false` outside an intended trial.
 
-The acceptance record includes exact commands, evidence IDs, provider/model, proposal hash, approval actor/time, execution ID, and verification readings. Redact secrets. Existing synthetic cost and operations demonstrations remain separate from this real recovery run.
+```sh
+python3.12 scripts/register_baseline.py
+python3.12 scripts/configure_execution.py
+python3.12 scripts/check_writer_scope.py
+```
 
-## Observable kind fixture
+The baseline comes from the captured healthy fixture, not AI output. Writer setup leaves execution disabled. In the console, review the exact target UID/resource version, bad/good template hashes, evidence, version, expiry and proposal hash before approving. Execution needs its own idempotency key.
 
-The developer-operated sample now has a separate [fixture runbook](../infra/kind/README.md). Start with `python3.12 scripts/kind_fixture.py up`, enable `compose.kind.yaml`, then run `python3.12 scripts/kind_fixture.py verify --cycles 2`. This exercises real traffic, a Kubernetes revision fault and fresh Prometheus measurements. It does not yet exercise AI diagnosis, authenticated approval or API/MCP remediation. Keep those acceptance claims separate.
+For a deliberate owned-fixture acceptance trial on a POSIX shell:
+
+```sh
+LIVE_EXECUTION_ENABLED=true PROPOSAL_TTL_SECONDS=60 docker compose -f compose.yaml -f compose.kind.yaml -f compose.execution.yaml up -d --build --wait
+python3.12 scripts/smoke_execution.py
+# Always remove the writer configuration afterward, including after failure:
+docker compose -f compose.yaml -f compose.kind.yaml up -d --wait api mcp worker
+```
+
+The script checks real rejection, approval expiry, drift, capability/preflight denials, one approved restore and replay. It resets the fixture in `finally`, but removing the execution overlay is a separate cleanup step. Restore the normal stack even if a command fails; keep `.env` execution false. PowerShell needs session environment overrides and must remove them before cleanup.
+
+If a trial stopped before any execution request, `--resume` retains passed independent denial cases and gathers fresh evidence for remaining cases. It refuses a changed UID, recorded execution intent/ID or a passed receipt. Never use it to retry an uncertain write. Use the API's read-only reconciliation instead.
+
+`smoke_proposal.py` exercises proposal/review with execution disabled. `smoke_recovery.py` attempts two full guarded actions plus independent verdicts; run it only when all required safety and verification prerequisites are reviewed. Neither is a harmless read-only smoke.
+
+## Independent recovery acceptance
+
+After a successful execution, `/verify` must retain a restored rollout, three new `/healthz` HTTP 200 probes and a full fresh post-action minute with at least 20 work requests and less than 1% 5xx. Show numerator, denominator, source times, thresholds and reason. Failed measurements mean `failed`; stale/missing data or insufficient traffic means `inconclusive`. Do not equate a patch response, readiness badge or reset script with recovery, and do not auto-close the incident.
+
+Release acceptance still requires two complete positive cycles plus rejection, expiry, drift, provider-outage and failed/inconclusive recovery cases. Browser/UI state, contract drift, PostgreSQL concurrency and clean-machine instructions need acceptance on the final merged revision.
+
+## Acceptance status
+
+| Area | Evidence boundary |
+|---|---|
+| Owned fault and real investigation | Earlier local records demonstrated live source collection, validated Nemotron findings and evidence persistence after restart. |
+| Exact approved action | Earlier local acceptance demonstrated one restore and zero-mutation denial/replay checks. Execution `4cb26a7e-fe66-4a79-8128-ad7eb87663fb` was recorded as succeeded, with no verification record. |
+| Independent recovery | Implementation and tests exist; two complete measured recovery cycles are not established by those records. |
+| ChatOps | UI/API integration exists; grounding, citation, fallback and durable audit limitations remain. |
+| Discord | Earlier webhook cards were reported delivered with source gaps; live slash-command acceptance remains open. |
+| Current merged revision | Re-run relevant checks; historical counts and diagrams are not fresh test or demo results. Documentation cleanup itself does not run a live scenario. |
+
+Useful receipts live under ignored `.local/kind/` and are not shipped in fresh clones. Save redacted new receipts with run/evidence/proposal/execution identity and actual readings; never invent replacement receipts when the model requires review.
+
+## Synthetic compatibility demo
+
+Use [explicit synthetic mode](DEVELOPMENT.md#explicit-synthetic-mode) and `scripts/smoke.py`. Cost reports are labeled sample calculations, not AWS bills. The base unconfigured operations adapter records an unavailable failure rather than a real patch. Show those modes honestly and keep their records separate from a live target investigation.
+
+Stop with `docker compose down` to preserve database data. Reset/teardown of kind uses the [owned fixture runbook](../infra/kind/README.md), not volume deletion or global Docker pruning.

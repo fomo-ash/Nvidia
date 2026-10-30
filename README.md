@@ -1,69 +1,81 @@
 # FixProof
 
-FixProof is a local-first, self-hosted AI DevOps investigation and remediation assistant for solo developers and small teams. Its intended MVP accepts an incident in a local kind cluster, collects Prometheus and Kubernetes evidence through one controlled MCP server, investigates with NVIDIA Nemotron through Nebius Token Factory, requires exact human approval for a bounded fix, and independently verifies recovery. The UI, API, integrations, and incident history run locally; live AI inference needs internet access to Nebius. Verified remediation is the product goal.
+FixProof is a local-first DevOps assistant for investigating failures, reviewing an exact fix and checking its outcome. It connects Kubernetes and Prometheus evidence with NVIDIA Nemotron through Nebius Token Factory, while the API retains incident history and controls approval and execution.
 
-The current foundation runs locally with synthetic evidence and billing data, so it needs no AWS credentials or external model key. Phase 2 implemented normalized investigations/evidence, exact-hash approvals, idempotent execution/verification records, persisted billing reports/sources, and audit history. Authenticated reports now flow through a durable read-only worker to scoped MCP evidence and validated Nebius analysis, with retained source readings and browser-visible progress. Missing live telemetry or invalid/unavailable model analysis leads to `needs_review`; the restore action remains disabled. See the [live investigation handoff](docs/LIVE_INVESTIGATION_HANDOFF.md) for measured acceptance and remaining gates. A developer-operated kind sample fixture now provides a real configuration fault, traffic and Prometheus measurements; product recovery verification is still planned. See the [fixture runbook](infra/kind/README.md). See the [current MCP and AI status](docs/agentic_architecture/CURRENT_IMPLEMENTATION_STATUS.md).
+The demo problem is concrete: a configuration change makes a Kubernetes sample return HTTP 500 even though its readiness endpoint stays ready. FixProof collects observations, explains likely causes and can prepare restoration of the independently registered healthy template.
 
-## Run locally
+## Implementation status
 
-Prerequisite: Docker with Compose v2+ (Docker Desktop on Windows).
-
-From the repository root, in PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-docker compose up --build --wait --wait-timeout 180
-docker compose run --rm api python -m app.seed
-```
-
-Use the copy command only when creating your local configuration; preserve an existing `.env`. Sample passwords are for this loopback-only demo. Migrations run automatically before the API starts.
-
-| Service | URL |
+| Capability | Current status |
 |---|---|
-| Operator UI | http://localhost:5173 |
-| API documentation | http://localhost:8000/docs |
-| API readiness | http://localhost:8000/health/ready |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3000 |
+| Incident investigation | Authenticated intake, durable collection jobs, five bounded evidence sources, retained findings and strict analysis citations are implemented; earlier local investigation/restart acceptance is recorded. |
+| Exact proposal and restore | Version/hash/expiry review, human approval, scoped capabilities, atomic Kubernetes preconditions and replay protection are implemented. One controlled live restore passed earlier local acceptance. Writes are disabled by default. |
+| Independent verification | Rollout checks, three health probes and a fresh traffic window are implemented. Two complete verified recovery cycles and final release acceptance remain open. Patch success alone is not recovery. |
+| ChatOps | Chat page, incident drawer and API/AI routes exist. Run selection, live prompt grounding, UUID citation validation and durable chat/tool history have important limitations. See [ChatOps](docs/CHATOPS.md). |
+| Discord | Optional audit-event delivery and signed read-only commands are implemented. Prior webhook delivery was reported; live slash-command acceptance remains pending. |
+| Cloud costs | Persisted, explicitly synthetic cost reports exist. Real billing ingestion and cloud optimization execution are planned. |
 
-Grafana credentials come from `.env`. Its provisioned FixProof dashboard monitors the API process, not a Kubernetes workload.
+Historical acceptance does not certify every later merge. AWS/Terraform/GitHub/Slack integration, arbitrary infrastructure actions and isolated fix-testing environments are outside the demonstrated workflow.
 
-```powershell
-python scripts/smoke.py
-docker compose down
+## Local workload and telemetry
+
+The owned kind fixture runs `sample-api` and a steady traffic generator in `fixproof-demo`. `FAIL_MODE=on` makes `/api/work` and `/healthz` fail while `/readyz` stays HTTP 200. Prometheus measures real work-request counters. MCP retains metrics, Deployment/pod state, events, bounded logs and direct probes; missing sources remain explicit gaps.
+
+```mermaid
+flowchart LR
+    Web[React operator console] --> API[FastAPI control plane]
+    API <--> DB[(PostgreSQL: incidents, evidence, approvals, audit)]
+    Worker[Durable investigation worker] <--> DB
+    Worker -->|bounded reads| MCP[MCP service]
+    MCP --> Kind[Owned kind sample]
+    MCP --> Prom[Prometheus]
+    Prom -->|scrape| Kind
+    Worker -->|retained evidence /analyze| AI[AI service]
+    AI --> Nebius[Nebius Token Factory / Nemotron]
+    API -->|opt-in signed action and separate verification| MCP
+    API -->|experimental chat| AI
+    AI -->|chat read tools| MCP
+    Discord[Discord signed read commands] --> API
+    DB --> Delivery[Discord outbox worker]
+    Delivery -->|optional webhook| Discord
 ```
 
-The smoke test needs only a host Python 3 interpreter and creates a synthetic incident. Stopping the stack preserves PostgreSQL data.
+The API and PostgreSQL own durable state. The separate legacy LangGraph/MemorySaver path is not an approval authority. [Architecture](docs/ARCHITECTURE.md) and [agent orchestration](docs/AGENTIC_ARCHITECTURE.md) explain these boundaries.
 
-## Verify the foundation
+## Stack
 
-These checks use development images and a separate test database; no host Python or Node installation is needed:
+React, TypeScript and Vite; Python/FastAPI; SQLAlchemy/Alembic with PostgreSQL; LangChain/LangGraph and OpenAI-compatible inference; MCP, Kubernetes/kind, Prometheus and Grafana; Docker Compose, pytest, Vitest and Playwright. The bundled Laya service is a deterministic protocol fixture, not a deployed Laya model.
 
-```powershell
+## Quick start
+
+Prerequisites: Docker with Compose, Python 3.12+, kind and internet access for image/tool downloads and live Nebius inference. Node 22.12+ and pnpm 10.15.1 are needed only for host frontend development. No local GPU is required by the default remote-inference path.
+
+From the repository root, create `.env` only if it does not already exist, then follow [environment setup](docs/DEVELOPMENT.md#environment-and-startup) before starting the stack:
+
+```sh
+cp -n .env.example .env
+python3.12 scripts/kind_fixture.py up
+python3.12 scripts/configure_investigation.py
+# Configure live inference and local database/Grafana credentials in ignored .env.
+docker compose -f compose.yaml -f compose.kind.yaml up --build --wait --wait-timeout 180
+```
+
+PowerShell uses `Copy-Item .env.example .env` only for a new configuration. Preserve existing credentials and database volumes.
+
+Required environment names: `POSTGRES_PASSWORD`, `DATABASE_URL`, `GRAFANA_ADMIN_PASSWORD`, `NEBIUS_API_KEY`, `AI_LLM_PROVIDER`, `ANALYSIS_ENABLED`, `LOCAL_DEMO_ENABLED`. Reader setup provisions `OPERATOR_SECRET`, `SESSION_SIGNING_KEY`, `SERVICE_AUTH_TOKEN` and `SAMPLE_TARGET_UID`. Model selection uses `NEBIUS_MODEL` and `NEBIUS_BASE_URL`. Values and optional integrations are covered in setup; never publish real keys.
+
+Open the console at http://localhost:5173, sign in and report the registered target. API docs are at http://localhost:8000/docs; Prometheus is at http://localhost:9090 and Grafana defaults to http://localhost:3000 (`GRAFANA_PORT` can change it). AI, MCP, PostgreSQL and delivery workers are internal services. Grafana's provisioned dashboard monitors the API process, not a recovery verdict.
+
+## Testing and demo
+
+```sh
 docker compose -f compose.checks.yaml run --build --rm api-checks
 docker compose -f compose.checks.yaml run --build --rm api-postgres-checks
 docker compose -f compose.checks.yaml run --build --rm web-checks
 ```
 
-If Make is installed, `make test`, `make lint`, and `make contracts` run the corresponding checks. See [Development](docs/DEVELOPMENT.md) for direct lint/type/contract commands.
+These are test commands, not a claim that the current revision passed them. See [development checks](docs/DEVELOPMENT.md#checks-and-contracts) for AI/MCP, formatting, generated contracts and browser tests.
 
-## Project map
+The [demo runbook](docs/DEMO_RUNBOOK.md) separates synthetic smoke, live investigation, approved restoration and independent recovery acceptance. It includes scripts that deliberately fault the owned sample. Keep writes disabled unless performing a reviewed, scoped trial.
 
-- `apps/api`: FastAPI routes, typed contracts, domain services, SQLAlchemy models, Alembic migrations, and tests.
-- `apps/ai`: advisory investigation graph, MCP client, model adapter, and agent tests. See the [implementation record](docs/agentic_architecture/FAIL_CLOSED_IMPLEMENTATION.md).
-- `apps/mcp`: bounded read tools for the registered demo target and MCP tests. The service is available only on the Compose network.
-- `apps/web`: React operator console, generated API types, and component/client tests.
-- `apps/sample`: observable HTTP sample and steady traffic generator.
-- `infra`: kind fixture manifests, Prometheus and provisioned Grafana configuration.
-- `scripts/smoke.py`: HTTP smoke check of the running stack.
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md): ordered work packages and exit gates for the real incident MVP.
-- [Initial incident](docs/INITIAL_INCIDENT.md) and [incident intake](docs/INCIDENT_INTAKE.md): first fault and reporting contract.
-- [Phase 2 handoff](docs/PHASE_2_HANDOFF.md): backend acceptance evidence, safety boundaries and review gates.
-- [Project blueprint](docs/ProjectBlueprint/PROJECT_BLUEPRINT.md), [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
-- [Discord integration](docs/DISCORD_INTEGRATION.md): optional channel updates and signed, read-only `/fixproof` commands.
-
-The kind fixture is the local infrastructure milestone. Product integration proceeds through authenticated manual intake, persisted real evidence, live Nemotron investigation, exact approval, a scoped restore action and independent recovery verification. Optional GitHub context and broader cloud integrations follow that workflow.
-
-## Authenticated live investigation
-
-With the owned fixture available, run `python3.12 scripts/configure_investigation.py` and start `docker compose -f compose.yaml -f compose.kind.yaml up --build --wait --wait-timeout 180`. This provisions a scoped read identity and synchronizes the registered UID without printing secrets. Supply a valid Nebius key/model in ignored `.env`, select `AI_LLM_PROVIDER=nebius`, and set `ANALYSIS_ENABLED=true` to enable advisory inference. Open `/incidents`, sign in with your configured local operator secret, report the target, and inspect retained source observations separately from model interpretation. Detailed commands and the repeatable acceptance script are in the [handoff](docs/LIVE_INVESTIGATION_HANDOFF.md).
+[Documentation index](docs/README.md) · [Security](docs/SECURITY.md) · [Discord](docs/DISCORD_INTEGRATION.md) · [kind runbook](infra/kind/README.md)
