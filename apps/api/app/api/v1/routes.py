@@ -619,6 +619,26 @@ def integrations(db: Database):
             "capabilities": [],
             "detail": "Execution and verification adapters are not configured",
         },
+        {
+            "id": "discord",
+            "status": "not_checked" if settings.discord_webhook_url else "not_configured",
+            "mode": "external",
+            "capabilities": (
+                ["channel_updates"]
+                + (
+                    ["read_only_commands"]
+                    if settings.discord_public_key
+                    and settings.discord_guild_id
+                    and settings.discord_allowed_role_ids
+                    else []
+                )
+            )
+            if settings.discord_webhook_url
+            else [],
+            "detail": "Discord configuration present; delivery and interaction endpoint not probed"
+            if settings.discord_webhook_url
+            else "Discord integration is disabled",
+        },
         *[
             {
                 "id": name,

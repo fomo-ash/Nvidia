@@ -109,5 +109,6 @@ def test_audit_truncate_is_blocked_on_postgresql(database, incident):
         pytest.skip("SQLite has no TRUNCATE command")
     with factory() as db:
         with pytest.raises(IntegrityError):
-            db.execute(text("TRUNCATE audit_events"))
+            # CASCADE reaches the append-only trigger despite Discord's audit FK.
+            db.execute(text("TRUNCATE audit_events CASCADE"))
         db.rollback()

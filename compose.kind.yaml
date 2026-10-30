@@ -26,6 +26,7 @@ services:
       AI_SERVICE_URL: http://ai:8001
       SAMPLE_TARGET_UID: ${SAMPLE_TARGET_UID:?run configure_investigation.py}
       ANALYSIS_ENABLED: ${ANALYSIS_ENABLED:-false}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     depends_on:
       api: { condition: service_healthy }
       mcp: { condition: service_healthy }

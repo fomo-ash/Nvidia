@@ -15,6 +15,7 @@ from app.api.v1.routes import router
 from app.core.config import settings
 from app.core.identity import issue_session
 from app.db.session import get_session
+from app.discord_interactions import router as discord_router
 
 app = FastAPI(title="FixProof API", version="0.1.0")
 app.add_middleware(
@@ -26,6 +27,7 @@ app.add_middleware(
     expose_headers=["X-Next-Cursor", "Idempotency-Replayed"],
 )
 app.include_router(router)
+app.include_router(discord_router)
 
 
 class LoginRequest(BaseModel):
