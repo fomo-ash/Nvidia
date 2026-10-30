@@ -7,6 +7,7 @@ import InvestigationsList from "./pages/InvestigationsList";
 import ApprovalsList from "./pages/ApprovalsList";
 import AuditEventsList from "./pages/AuditEventsList";
 import CostAutopsyView from "./pages/CostAutopsyView";
+import AgentChatPage from "./pages/AgentChatPage";
 import { useAuth } from "./context/AuthContext";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -168,7 +169,15 @@ function IncidentDetails() {
 }
 
 export default function App() {
-  const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/costs", "Costs"], ["/audit", "Audit"]];
+  const links = [
+    ["/", "Overview"],
+    ["/incidents", "Incidents"],
+    ["/investigations", "Investigations"],
+    ["/approvals", "Approvals"],
+    ["/costs", "Costs"],
+    ["/audit", "Audit"],
+    ["/chat", "Agent Chat"],
+  ];
   return <div className="shell">
     <aside>
       <div className="brand">FIX<span>PROOF</span></div><p>Local operations assistant</p>
@@ -184,6 +193,7 @@ export default function App() {
       <Route path="/approvals" element={<ApprovalsList />} />
       <Route path="/costs" element={<CostAutopsyView />} />
       <Route path="/audit" element={<AuditEventsList />} />
+      <Route path="/chat" element={<AgentChatPage />} />
       <Route path="*" element={<><h1>Page not found</h1><NavLink to="/">Return to overview</NavLink></>} />
     </Routes></main>
   </div>;

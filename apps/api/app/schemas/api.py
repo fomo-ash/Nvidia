@@ -185,5 +185,19 @@ class DashboardOut(BaseModel):
     mode: Literal["deterministic-demo", "local-operations"]
 
 
+class ChatMessageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    message: str = Field(min_length=1, max_length=2000)
+    session_id: str = Field(default="default", max_length=128)
+    incident_id: str | None = Field(default=None, max_length=128)
+
+
+class ChatMessageOut(BaseModel):
+    incident_id: str
+    response: str
+    citations: list[str] = Field(default_factory=list)
+    session_id: str
+
+
 class ErrorOut(BaseModel):
     detail: str

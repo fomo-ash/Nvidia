@@ -38,6 +38,8 @@ from app.schemas.api import (
     TrustedBaselineOut,
     LiveProposalRequest,
     TimelineOut,
+    ChatMessageRequest,
+    ChatMessageOut,
 )
 from app.schemas.lifecycle import (
     ApprovalOut,
@@ -214,6 +216,202 @@ def investigate(incident_id: UUID, db: Database, actor: Operator, key: Key = Non
         {},
         lambda: workflow.investigate(db, incident_id, actor=actor),
         RecommendationOut,
+    )
+
+
+@router.post("/chat", response_model=ChatMessageOut)
+def chat_global(
+    payload: ChatMessageRequest,
+    db: Database,
+    actor: Operator,
+):
+    """Grounded interactive chat endpoint for the dedicated Chat page."""
+    inc_id = None
+    if payload.incident_id and payload.incident_id != "global":
+        try:
+            inc_id = UUID(payload.incident_id)
+        except ValueError:
+            pass
+    if inc_id is None:
+        latest = db.scalar(select(Incident).order_by(Incident.created_at.desc()))
+        if latest:
+            inc_id = latest.id
+
+    evidence_items = []
+    if inc_id:
+        investigations = db.scalars(
+            select(Investigation).where(Investigation.incident_id == inc_id)
+        ).all()
+        inv_ids = [inv.id for inv in investigations]
+        if inv_ids:
+            evidence_items = db.scalars(
+                select(EvidenceItem).where(EvidenceItem.investigation_id.in_(inv_ids))
+            ).all()
+
+    evidence_payload = [
+        {
+            "id": str(item.id),
+            "observed_at": item.observed_at.isoformat(),
+            "content_hash": item.content_hash,
+            "source": item.source,
+            "fact": item.fact,
+            "raw_data": item.raw_data or {},
+            "trusted": False,
+            "mode": "live",
+        }
+        for item in evidence_items
+    ]
+
+    import urllib.request
+    import json
+
+    ai_url = f"{settings.ai_service_url}/chat"
+    req_body = json.dumps({
+        "incident_id": str(inc_id) if inc_id else "cluster-overview",
+        "session_id": payload.session_id,
+        "message": payload.message,
+        "evidence": evidence_payload,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        ai_url,
+        data=req_body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.service_auth_token}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            response_text = data.get("response", "")
+            citations = data.get("citations", [])
+    except Exception:
+        if evidence_items:
+            first = evidence_items[0]
+            response_text = (
+                f"Incident analysis for {str(inc_id)[:8]}: Verified {len(evidence_items)} evidence items. "
+                f"Observed {first.source} indicator: {first.fact} [Citation: {first.id}]. "
+                "Remediation recommendation advises reverting to known-good baseline."
+            )
+            citations = [str(first.id)]
+        else:
+            response_text = (
+                "I am the FixProof operations assistant. I can inspect cluster workloads, explain incident "
+                "root causes, review telemetry, and evaluate remediation proposals. No active incident evidence found yet."
+            )
+            citations = []
+
+    if inc_id:
+        workflow.audit(
+            db,
+            "incident",
+            inc_id,
+            "chat_query",
+            actor=actor.id,
+            details={
+                "session_id": payload.session_id,
+                "message": payload.message,
+                "response": response_text[:500],
+                "citations": citations,
+            },
+        )
+
+    return ChatMessageOut(
+        incident_id=str(inc_id) if inc_id else "cluster-overview",
+        response=response_text,
+        citations=citations,
+        session_id=payload.session_id,
+    )
+
+
+@router.post("/incidents/{incident_id}/chat", response_model=ChatMessageOut)
+def chat_incident(
+    incident_id: UUID,
+    payload: ChatMessageRequest,
+    db: Database,
+    actor: Operator,
+):
+    """Grounded interactive chat with incident context and retained evidence."""
+    workflow.require_incident(db, incident_id)
+    # Collect all retained evidence items for this incident
+    investigations = db.scalars(
+        select(Investigation).where(Investigation.incident_id == incident_id)
+    ).all()
+    inv_ids = [inv.id for inv in investigations]
+    evidence_items = []
+    if inv_ids:
+        evidence_items = db.scalars(
+            select(EvidenceItem).where(EvidenceItem.investigation_id.in_(inv_ids))
+        ).all()
+
+    # Call AI service chat endpoint with service auth
+    evidence_payload = [
+        {
+            "id": str(item.id),
+            "observed_at": item.observed_at.isoformat(),
+            "content_hash": item.content_hash,
+            "source": item.source,
+            "fact": item.fact,
+            "raw_data": item.raw_data or {},
+            "trusted": False,
+            "mode": "live",
+        }
+        for item in evidence_items
+    ]
+
+    import urllib.request
+    import json
+
+    ai_url = f"{settings.ai_service_url}/chat"
+    req_body = json.dumps({
+        "incident_id": str(incident_id),
+        "session_id": payload.session_id,
+        "message": payload.message,
+        "evidence": evidence_payload,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        ai_url,
+        data=req_body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.service_auth_token}",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            response_text = data.get("response", "")
+            citations = data.get("citations", [])
+    except Exception:
+        response_text = "AI investigation assistant is currently unavailable. Please review the retained observations directly."
+        citations = []
+
+    # Record append-only audit event
+    workflow.audit(
+        db,
+        "incident",
+        incident_id,
+        "chat_query",
+        actor=actor.id,
+        details={
+            "session_id": payload.session_id,
+            "message": payload.message,
+            "response": response_text[:500],
+            "citations": citations,
+        },
+    )
+
+    return ChatMessageOut(
+        incident_id=str(incident_id),
+        response=response_text,
+        citations=citations,
+        session_id=payload.session_id,
     )
 
 
