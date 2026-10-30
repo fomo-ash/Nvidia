@@ -59,7 +59,7 @@ function Placeholder({ title }: { title: string }) {
 }
 
 export default function App() {
-  const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/costs", "Cost Autopsy"], ["/audit", "Audit"]];
+  const links = [["/", "Overview"], ["/incidents", "Incidents"], ["/investigations", "Investigations"], ["/approvals", "Approvals"], ["/audit", "Audit"]];
   return <div className="shell">
     <aside>
       <div className="brand">FIX<span>PROOF</span></div><p>Local operations assistant</p>
