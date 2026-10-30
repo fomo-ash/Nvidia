@@ -1,36 +1,109 @@
-import { NavLink, Route, Routes, useParams } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, Route, Routes, useParams, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import {
+  LayoutDashboard,
+  AlertTriangle,
+  Search,
+  CheckCircle2,
+  DollarSign,
+  ScrollText,
+  Menu,
+  X,
+  ShieldCheck,
+  ChevronRight,
+} from "lucide-react";
 import { api } from "./services/api";
 import IncidentReport, { IncidentProgress } from "./IncidentReport";
+import OperatorSessionBar from "./components/OperatorSessionBar";
+import InvestigationsList from "./pages/InvestigationsList";
+import ApprovalsList from "./pages/ApprovalsList";
+import AuditEventsList from "./pages/AuditEventsList";
+import CostAutopsyView from "./pages/CostAutopsyView";
+import { useAuth } from "./context/AuthContext";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 function Overview() {
+  const { isAuthenticated } = useAuth();
   const query = useQuery({
     queryKey: ["dashboard"],
     queryFn: ({ signal }) => api("/api/v1/dashboard/summary", { signal }),
+    enabled: isAuthenticated,
   });
+
+  if (!isAuthenticated) {
+    return (
+      <section className="panel" aria-label="Sign in required">
+        <div className="page-header">
+          <h1>Operations overview</h1>
+          <p className="sub">Evidence-led infrastructure reliability & autonomous remediation.</p>
+        </div>
+        <div className="state state-muted">
+          <p>An operator session is required to inspect live cluster status and metrics.</p>
+          <p>Please click <b>Sign In</b> in the sidebar to authenticate with your operator secret.</p>
+        </div>
+      </section>
+    );
+  }
+
   if (query.isPending) return <p role="status">Loading operational data...</p>;
-  if (query.isError) return <div role="alert"><p>Unable to reach FixProof API.</p><button onClick={() => void query.refetch()}>Retry</button></div>;
+  if (query.isError) {
+    return (
+      <div role="alert" className="state">
+        <p>Unable to reach FixProof API.</p>
+        <button className="secondary" onClick={() => void query.refetch()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   const data = query.data;
   const costs = data.cost_autopsy;
-  return <>
-    <h1>Operations overview</h1>
-    <p className="sub">Evidence-led operations.</p>
-    <p role="status">API connected · {data.mode} · Synthetic billing data</p>
-    <section className="grid">
-      <article><span>Open incidents</span><strong>{data.open_incidents}</strong></article>
-      <article><span>{costs.current_period} sample cost</span><strong>{usd.format(costs.total_cost)}</strong></article>
-      <article><span>Change from {costs.previous_period}</span><strong>{usd.format(costs.change)} ({costs.change_percent === null ? "no percentage baseline" : `${costs.change_percent}%`})</strong></article>
-    </section>
-    <section className="panel">
-      <h2>Cloud Cost Autopsy</h2>
-      <p>Estimated savings: <b>{usd.format(costs.estimated_savings.amount)}</b>.</p>
-      <p>{costs.estimated_savings.assumption}</p>
-      <p><small>{costs.estimated_savings.formula}</small></p>
-      <small>Sample billing totals and estimated savings are separate.</small>
-    </section>
-  </>;
+
+  return (
+    <>
+      <div className="page-header">
+        <h1>Operations overview</h1>
+        <p className="sub">Evidence-led infrastructure reliability & autonomous remediation.</p>
+      </div>
+
+      <p role="status" className="state-muted" style={{ marginBottom: "16px" }}>
+        API connected · <span className="mono">{data.mode}</span> · Synthetic billing data
+      </p>
+
+      <section className="grid">
+        <article>
+          <span>Open incidents</span>
+          <strong>{data.open_incidents}</strong>
+        </article>
+        <article>
+          <span>{costs.current_period} sample cost</span>
+          <strong>{usd.format(costs.total_cost)}</strong>
+        </article>
+        <article>
+          <span>Change from {costs.previous_period}</span>
+          <strong>
+            {usd.format(costs.change)} (
+            {costs.change_percent === null ? "no baseline" : `${costs.change_percent}%`}
+            )
+          </strong>
+        </article>
+      </section>
+
+      <section className="panel">
+        <h2>Cloud Cost Autopsy</h2>
+        <p>
+          Estimated savings: <b>{usd.format(costs.estimated_savings.amount)}</b>.
+        </p>
+        <p className="state-muted">{costs.estimated_savings.assumption}</p>
+        <p>
+          <small>{costs.estimated_savings.formula}</small>
+        </p>
+      </section>
+    </>
+  );
 }
 
 function Incidents() {
@@ -38,24 +111,73 @@ function Incidents() {
     queryKey: ["incidents"],
     queryFn: ({ signal }) => api("/api/v1/incidents", { signal }),
   });
-  return <>
-    <h1>Incidents</h1>
-    <IncidentReport />
-    {query.isPending ? <p role="status">Loading incidents...</p> :
-      query.isError ? <div role="alert"><p>Unable to load incidents.</p><button onClick={() => void query.refetch()}>Retry</button></div> :
-        <section className="panel">{query.data.length ? query.data.map(item =>
-          <div className="row" key={item.id}><b>{item.title}</b><span className="badge">{item.severity}</span><span>{item.status}</span><NavLink to={`/incidents/${item.id}`}>View investigation</NavLink></div>,
-        ) : <p>No incidents yet. Seed the local demo to load an example.</p>}</section>}
-  </>;
+
+  return (
+    <>
+      <div className="page-header">
+        <h1>Incidents</h1>
+        <p className="sub">Cluster degradation reports, evidence collection, and remediation status.</p>
+      </div>
+
+      <IncidentReport />
+
+      {query.isPending ? (
+        <p role="status">Loading incidents...</p>
+      ) : query.isError ? (
+        <div role="alert" className="state">
+          <p>Unable to load incidents.</p>
+          <button className="secondary" onClick={() => void query.refetch()}>
+            Retry
+          </button>
+        </div>
+      ) : (
+        <section className="panel" aria-label="Incident history list">
+          <h2>Recorded Incidents</h2>
+          {query.data.length ? (
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {query.data.map(item => (
+                    <tr key={item.id}>
+                      <td><b>{item.title}</b></td>
+                      <td><span className={`badge badge-${item.severity}`}>{item.severity}</span></td>
+                      <td><span className={`badge badge-${item.status}`}>{item.status}</span></td>
+                      <td><NavLink to={`/incidents/${item.id}`}>View investigation</NavLink></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="state-muted">No incidents yet. Seed the local demo to load an example.</p>
+          )}
+        </section>
+      )}
+    </>
+  );
 }
 
 function IncidentDetails() {
   const { incidentId } = useParams();
-  return <><h1>Incident details</h1><p><NavLink to="/incidents">Back to reports and sign in</NavLink></p>{incidentId && <IncidentProgress incidentId={incidentId} />}</>;
-}
-
-function Placeholder({ title }: { title: string }) {
-  return <><h1>{title}</h1><section className="panel"><p>This view is planned. The current demo supports incident investigation and approval through the API documentation.</p></section></>;
+  return (
+    <>
+      <div className="page-header">
+        <h1>Incident details</h1>
+        <p className="sub">
+          <NavLink to="/incidents">← Back to incidents list</NavLink>
+        </p>
+      </div>
+      {incidentId && <IncidentProgress incidentId={incidentId} />}
+    </>
+  );
 }
 
 export default function App() {
