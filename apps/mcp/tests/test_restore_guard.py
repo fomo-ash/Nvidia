@@ -91,10 +91,13 @@ async def test_capability_denies_wrong_scope_expiry_and_tampering(monkeypatch):
     monkeypatch.setattr(kubernetes.KubernetesClient, "restore_known_good", patched)
     assert (await restore_known_good_template(item)).status == "succeeded"
     assert calls == [item.execution_id]
+    signature_tail = "1" if item.capability_token[-1] == "0" else "0"
+    tampered_token = item.capability_token[:-1] + signature_tail
+    assert tampered_token != item.capability_token
     for token in (
         signed(item, expiry=-1),
         signed(item, overrides={"namespace": "kube-system"}),
-        item.capability_token[:-1] + "0",
+        tampered_token,
     ):
         item.capability_token = token
         assert (await restore_known_good_template(item)).status == "failed"
