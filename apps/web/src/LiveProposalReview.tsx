@@ -12,6 +12,23 @@ async function message(response: Response) {
   catch { return `Request failed (${response.status})`; }
 }
 
+export function VerificationSummary({ verification }: { verification: Verification }) {
+  const observations = verification.observations as Record<string, unknown>;
+  const measurements = Array.isArray(observations.measurements) ? observations.measurements as Array<Record<string, unknown>> : [];
+  const reason = typeof observations.reason === "string" ? observations.reason : "No additional verification reason was recorded.";
+  const heading = verification.status === "passed" ? "Recovery verified" : verification.status === "failed" ? "Recovery not verified" : verification.status === "inconclusive" ? "Recovery inconclusive" : "Recovery measurement pending";
+  return <section className={`verification verification-${verification.status}`} aria-label="Recovery verification">
+    <h5>{heading}</h5>
+    <p>{verification.status === "passed" ? "Fresh rollout, health, and traffic measurements passed." : verification.status === "pending" ? "A successful patch alone does not establish recovery. Fresh measurements are still being collected." : reason}</p>
+    {measurements.length > 0 && <table>
+      <caption>Fresh recovery measurements</caption>
+      <thead><tr><th>Measurement</th><th>Actual</th><th>Required</th><th>Observed</th></tr></thead>
+      <tbody>{measurements.map((item, index) => <tr key={`${String(item.name)}-${index}`}><td>{String(item.name)}</td><td>{String(item.value)}</td><td>{String(item.operator)} {String(item.threshold)}</td><td>{item.observed_at ? new Date(String(item.observed_at)).toLocaleString() : "unknown"}</td></tr>)}</tbody>
+    </table>}
+    <small>Verdict recorded {verification.completed_at ? new Date(verification.completed_at).toLocaleString() : "in progress"}.</small>
+  </section>;
+}
+
 export default function LiveProposalReview({ incidentId, investigationId, eligible }: {
   incidentId: string; investigationId: string; eligible: boolean;
 }) {
@@ -101,7 +118,8 @@ export default function LiveProposalReview({ incidentId, investigationId, eligib
       <p>Execution: <b>{execution.status}</b>. {String(execution.result?.reason ?? "")}</p>
       {execution.status === "pending" && <button disabled={busy} onClick={() => void submit(`/executions/${execution.id}/reconcile`, {})}>Check uncertain outcome</button>}
       {execution.status === "succeeded" && !verification.data && <button disabled={busy || verification.isPending} onClick={() => void submit(`/executions/${execution.id}/verify`, {})}>Measure recovery</button>}
-      {verification.data && <p>Recovery verification: <b>{verification.data.status}</b>.</p>}
+      {verification.isError && <div role="alert">Unable to load recovery verification. <button className="secondary" onClick={() => void verification.refetch()}>Retry verification</button></div>}
+      {verification.data && <VerificationSummary verification={verification.data} />}
     </section>}
     <p>Approval authorizes one exact restore attempt. Recovery is reported only after fresh rollout, probe, and traffic measurements pass.</p>
     {error && <p role="alert">{error}</p>}

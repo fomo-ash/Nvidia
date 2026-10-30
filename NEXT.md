@@ -55,7 +55,8 @@ The pre-existing Jev/Laya implementation is preserved and advisory. Legacy stand
 - [x] Implement independent verification adapter and tool (`apps/mcp/app/adapters/prometheus.py`, `probe.py`, `apps/mcp/app/tools/verification.py` - 31/31 MCP unit tests passing).
 - [ ] After the patch, use a fresh window: restored rollout availability, three functional `/healthz` probes, and 60 seconds of Prometheus `/api/work` traffic with at least 20 requests and less than 1% 5xx. Store counts, ratio, thresholds, revision, observation times, statuses, timeout, and reason.
 - [ ] Return `passed`, `failed`, or `inconclusive` from measurements. Persistent errors or failed probes are failure; missing/stale metrics or insufficient traffic are inconclusive. Do not auto-close the incident.
-- [ ] UI: complete trigger → evidence → investigation → proposal → approval → execution → verification timeline, with pending/error/empty states and links to stored readings. Regenerate OpenAPI and frontend types; test that patch success never displays as verified recovery.
+- [x] Operator UI: show the auditable trigger → evidence → investigation → proposal → approval → execution → verification timeline, explicit pending/error/empty/retry states, and stored measurement readings. “Recovery verified” is displayed only for a persisted `passed` verdict; patch success alone is not recovery.
+- [ ] Add browser E2E coverage for passed, failed, and inconclusive recovery verdicts, including a direct incident reload. Run the flow against fresh post-action measurements before claiming Phase 7 acceptance.
 
 ## Phase 8: release rehearsal
 
