@@ -5,6 +5,7 @@ const base = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").repl
 
 import type { components } from "./services/schema";
 import LiveInvestigation from "./LiveInvestigation";
+import IncidentTimeline from "./IncidentTimeline";
 
 type Target = components["schemas"]["IncidentTargetOut"];
 type Report = components["schemas"]["ManualIncidentOut"];
@@ -117,5 +118,6 @@ export function IncidentProgress({ incidentId }: { incidentId: string }) {
       <div><span className="eyebrow">Investigation queue</span>{queue.length ? <ul>{queue.map(item => <li key={item.id}><span className={`queue-status queue-${item.status}`}>{item.status}</span><time>{new Date(item.created_at).toLocaleString()}</time></li>)}</ul> : <p className="state-muted">No investigation request has been queued yet.</p>}</div>
       <div><span className="eyebrow">Trigger history</span>{history.length ? <ul>{history.map(item => <li key={item.id}><b>{item.summary}</b><small>{item.source} report · {new Date(item.reported_at).toLocaleString()}</small>{item.note && <small>Note: {item.note}</small>}</li>)}</ul> : <p className="state-muted">No trigger history is available yet.</p>}</div>
     </div>
+    <IncidentTimeline incidentId={incidentId} />
   </section>;
 }
