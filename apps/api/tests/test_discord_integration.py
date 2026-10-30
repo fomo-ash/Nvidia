@@ -86,10 +86,117 @@ def test_committed_live_events_deliver_once_without_mentions(database, monkeypat
     assert deliver_once(factory, WEBHOOK) is False
     assert len(sent) == 1 and sent[0][0].endswith("?wait=true")
     assert sent[0][1]["allowed_mentions"] == {"parse": []}
-    assert "Private raw summary" not in sent[0][1]["content"]
+    assert sent[0][1]["embeds"][0]["title"] == "Incident reported"
+    assert sent[0][1]["embeds"][0]["color"] > 0
+    assert "Collection queued" in str(sent[0][1]["embeds"][0]["fields"])
+    assert "Private raw summary" not in json.dumps(sent[0][1])
     with factory() as db:
         row = db.scalar(select(DiscordDelivery))
         assert row.status == "delivered" and row.message_id == "123456789012345678"
+
+
+def test_investigation_card_includes_evidence_metadata_without_raw_facts(database, monkeypatch):
+    factory, _, _ = database
+    monkeypatch.setattr(settings, "discord_webhook_url", WEBHOOK)
+    with factory() as db:
+        incident = live_incident(db)
+        incident.target_id = "local-kind/fixproof-demo/sample-api"
+        incident.symptom = "http_5xx_spike"
+        run = Investigation(
+            id=uuid4(),
+            incident_id=incident.id,
+            provider="mcp",
+            mode="live",
+            status="needs_review",
+            summary="Private model summary",
+            result={},
+        )
+        run_id = run.id
+        db.add(run)
+        db.flush()
+        db.add_all(
+            [
+                EvidenceItem(
+                    id=uuid4(),
+                    investigation_id=run.id,
+                    source="prometheus",
+                    observed_at=datetime.now(timezone.utc),
+                    fact="Private metric fact",
+                    content_hash="a" * 64,
+                    trust_label="untrusted",
+                    mode="live",
+                    raw_data={
+                        "total_requests": 120,
+                        "error_requests_5xx": 6,
+                        "secret": "private raw data",
+                    },
+                    redacted=True,
+                ),
+                EvidenceItem(
+                    id=uuid4(),
+                    investigation_id=run.id,
+                    source="kubernetes:logs",
+                    observed_at=datetime.now(timezone.utc),
+                    fact="Private log line",
+                    content_hash="b" * 64,
+                    trust_label="untrusted",
+                    mode="live",
+                    raw_data={},
+                    collection_error="Private collection error",
+                    redacted=True,
+                ),
+            ]
+        )
+        audit(
+            db,
+            "incident",
+            incident.id,
+            "investigation_finished",
+            {"investigation_id": str(run.id), "assessment": "active"},
+            "operator",
+        )
+        db.commit()
+
+    sent = []
+
+    class Response:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def read(self, _limit):
+            return b'{"id":"123456789012345678"}'
+
+    def urlopen(request, timeout):
+        sent.append(json.loads(request.data))
+        return Response()
+
+    monkeypatch.setattr("app.services.discord_notifications.urllib.request.urlopen", urlopen)
+    assert deliver_once(factory, WEBHOOK) is True
+    payload = sent[0]
+    fields = {item["name"]: item["value"] for item in payload["embeds"][0]["fields"]}
+    assert "prometheus" in fields["Evidence sources (2)"]
+    assert "6/120 HTTP 5xx (5.0%)" in fields["Evidence sources (2)"]
+    assert "kubernetes:logs" in fields["Evidence sources (2)"]
+    assert "retained" in fields["Evidence sources (2)"]
+    assert "gap" in fields["Evidence sources (2)"]
+    assert str(run_id) in fields["Investigation"]
+    assert len(fields["Evidence sources (2)"]) <= 1024
+    assert payload["allowed_mentions"] == {"parse": []}
+    assert not any(
+        secret in json.dumps(payload)
+        for secret in (
+            "Private metric fact",
+            "Private log line",
+            "Private collection error",
+            "private raw data",
+            "Private model summary",
+        )
+    )
 
 
 def test_rate_limit_retries_without_changing_incident(database, monkeypatch):

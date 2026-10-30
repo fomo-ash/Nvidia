@@ -457,13 +457,17 @@ def test_missing_lifecycle_resources_are_404(client, path):
     assert client.get(f"/api/v1/{path}/{uuid4()}").status_code == 404
 
 
-def test_integration_status_does_not_claim_unconfigured_remote_connections(client):
+def test_integration_status_does_not_claim_unconfigured_remote_connections(client, monkeypatch):
+    monkeypatch.setattr(settings, "discord_webhook_url", "")
     values = {item["id"]: item for item in client.get("/api/v1/integrations").json()}
     assert values["database"]["status"] == "available"
     assert values["operations"]["status"] == "not_configured"
     assert values["aws"]["status"] == "not_configured"
     assert values["grafana"]["status"] == "not_checked"
     assert values["discord"]["status"] == "not_configured"
+    monkeypatch.setattr(settings, "discord_webhook_url", "https://discord.com/api/webhooks/test")
+    values = {item["id"]: item for item in client.get("/api/v1/integrations").json()}
+    assert values["discord"]["status"] == "not_checked"
 
 
 def test_browser_can_send_idempotency_keys_and_read_pagination_headers(client):
