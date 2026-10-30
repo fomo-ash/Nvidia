@@ -105,7 +105,8 @@ describe("secondary pages suite", () => {
     renderWithProviders(<AuditEventsList />, true);
     expect(await screen.findByText("recommendation")).toBeTruthy();
     expect(screen.getByText("approved")).toBeTruthy();
-    expect(screen.getByText("Inspect details")).toBeTruthy();
+    expect(screen.getByText("operator-admin")).toBeTruthy();
+    expect(screen.getByText(/1 detail fields/)).toBeTruthy();
   });
 
   it("renders CostAutopsyView with drivers and savings formula", async () => {
