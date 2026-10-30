@@ -1,5 +1,7 @@
 # Database schema
 
+Migration `0007_discord_deliveries` adds one delivery record per selected committed live audit event, with state, attempts, next availability, claim time, Discord message ID and a sanitized error kind. No webhook URL, bot token or message body is persisted. Delivery rows do not grant any incident, approval or execution authority. See [Discord integration](DISCORD_INTEGRATION.md).
+
 `trusted_baselines` stores the operator-registered, append-only healthy pod template and SHA-256 for one registered Deployment UID, along with registrar and time. Migration `0006_trusted_baseline` adds the table and database update/delete guards. Live proposal bindings use the existing `recommendations` and `approvals` tables; the proposal JSON includes baseline ID, current UID/resourceVersion, bad/good hashes, analysis hash and retained evidence IDs/hashes.
 
 Alembic owns schema creation. Startup never uses ORM create_all. PostgreSQL is the deployment database; SQLite supports isolated tests and local development.

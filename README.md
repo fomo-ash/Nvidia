@@ -60,6 +60,7 @@ If Make is installed, `make test`, `make lint`, and `make contracts` run the cor
 - [Initial incident](docs/INITIAL_INCIDENT.md) and [incident intake](docs/INCIDENT_INTAKE.md): first fault and reporting contract.
 - [Phase 2 handoff](docs/PHASE_2_HANDOFF.md): backend acceptance evidence, safety boundaries and review gates.
 - [Project blueprint](docs/ProjectBlueprint/PROJECT_BLUEPRINT.md), [Architecture](docs/ARCHITECTURE.md), [API contracts](docs/API_CONTRACTS.md), [Security](docs/SECURITY.md), and [Demo runbook](docs/DEMO_RUNBOOK.md).
+- [Discord integration](docs/DISCORD_INTEGRATION.md): optional channel updates and signed, read-only `/fixproof` commands.
 
 The kind fixture is the local infrastructure milestone. Product integration proceeds through authenticated manual intake, persisted real evidence, live Nemotron investigation, exact approval, a scoped restore action and independent recovery verification. Optional GitHub context and broader cloud integrations follow that workflow.
 

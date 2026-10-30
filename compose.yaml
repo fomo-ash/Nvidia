@@ -28,6 +28,11 @@ services:
       CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:5173","http://127.0.0.1:5173"]}'
       LLM_PROVIDER: mock
       LOCAL_DEMO_ENABLED: ${LOCAL_DEMO_ENABLED:-false}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}
+      DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_ALLOWED_ROLE_IDS: '${DISCORD_ALLOWED_ROLE_IDS:-[]}'
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://fixproof:change-me-local-only@db:5432/fixproof}
     depends_on: { db: { condition: service_healthy } }
     ports: ["127.0.0.1:8000:8000"]
@@ -52,6 +57,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
+    networks: [fixproof]
+    restart: unless-stopped
+  discord:
+    build: { context: ./apps/api, target: runtime }
+    command: [python, -m, app.discord_worker]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://fixproof:change-me-local-only@db:5432/fixproof}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    depends_on: { db: { condition: service_healthy }, api: { condition: service_healthy } }
     networks: [fixproof]
     restart: unless-stopped
   mcp:

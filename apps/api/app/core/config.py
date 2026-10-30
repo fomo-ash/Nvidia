@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     analysis_enabled: bool = False
     live_execution_enabled: bool = False
     execution_signing_key: str = ""
+    discord_webhook_url: str = ""
+    discord_public_key: str = ""
+    discord_application_id: str = ""
+    discord_guild_id: str = ""
+    discord_allowed_role_ids: list[str] = []
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

@@ -120,6 +120,27 @@ class AuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class DiscordDelivery(Base):
+    __tablename__ = "discord_deliveries"
+    __table_args__ = (
+        Index("ix_discord_delivery_ready", "status", "available_at"),
+        CheckConstraint(
+            "status IN ('queued', 'leased', 'delivered', 'failed')",
+            name="ck_discord_delivery_status",
+        ),
+    )
+    audit_event_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("audit_events.id"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(20), default="queued")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    message_id: Mapped[str | None] = mapped_column(String(80))
+    error_kind: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class Investigation(Base):
     __tablename__ = "investigations"
     __table_args__ = (

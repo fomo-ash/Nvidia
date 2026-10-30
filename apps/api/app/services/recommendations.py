@@ -40,15 +40,14 @@ def audit(
         item = db.get(Recommendation, entity_id)
         if item:
             details.setdefault("incident_id", str(item.incident_id))
-    db.add(
-        AuditEvent(
-            entity_type=entity_type,
-            entity_id=entity_id,
-            action=action,
-            actor=actor,
-            details=details,
-        )
+    from app.services.discord_notifications import enqueue
+
+    event = AuditEvent(
+        id=uuid4(), entity_type=entity_type, entity_id=entity_id,
+        action=action, actor=actor, details=details,
     )
+    db.add(event)
+    enqueue(db, event)
 
 
 def require_incident(db: Session, incident_id: UUID, *, lock=False) -> Incident:

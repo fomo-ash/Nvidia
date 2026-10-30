@@ -463,6 +463,7 @@ def test_integration_status_does_not_claim_unconfigured_remote_connections(clien
     assert values["operations"]["status"] == "not_configured"
     assert values["aws"]["status"] == "not_configured"
     assert values["grafana"]["status"] == "not_checked"
+    assert values["discord"]["status"] == "not_configured"
 
 
 def test_browser_can_send_idempotency_keys_and_read_pagination_headers(client):
