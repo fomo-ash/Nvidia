@@ -1,8 +1,25 @@
 # FixProof
 
-FixProof is a local-first DevOps assistant for investigating failures, reviewing an exact fix and checking its outcome. It connects Kubernetes and Prometheus evidence with NVIDIA Nemotron through Nebius Token Factory, while the API retains incident history and controls approval and execution.
+FixProof is a local-first, evidence-grounded DevOps assistant that helps an operator investigate a Kubernetes incident, review one exact restoration proposal, and independently decide whether recovery occurred.
 
-The demo problem is concrete: a configuration change makes a Kubernetes sample return HTTP 500 even though its readiness endpoint stays ready. FixProof collects observations, explains likely causes and can prepare restoration of the independently registered healthy template.
+The demonstration incident is deliberately narrow: a configuration change makes the owned `sample-api` return HTTP 500 while its readiness endpoint remains healthy. FixProof collects bounded Kubernetes and Prometheus observations, retains and cites them, asks a configured NVIDIA Nemotron model for evidence-grounded hypotheses, then keeps approval and execution under deterministic controls.
+
+## Demo links
+
+- Working demo or accessible test build: **[to be added before submission]**
+- Public YouTube demonstration (three minutes or less): **[to be added before submission]**
+
+These are intentionally marked as pending rather than linking to an unverified deployment or video.
+
+See [the submission handoff](SUBMISSION_HANDOFF.md) for the remaining external assets, source checks, and implementation boundary.
+
+## How it works
+
+1. An authenticated operator reports the incident.
+2. A durable worker gathers bounded Kubernetes, Prometheus, log, event, and probe evidence.
+3. The AI service stores the evidence and asks the configured Nemotron model for cited hypotheses, contradictions, gaps, and uncertainty.
+4. FixProof creates an exact, versioned restoration proposal; a human must approve it before any write can be considered.
+5. The scoped writer applies guarded preconditions, then independent rollout, probe, and fresh-traffic checks determine recovery. A successful patch alone is not a recovery verdict.
 
 ## Implementation status
 
@@ -16,6 +33,12 @@ The demo problem is concrete: a configuration change makes a Kubernetes sample r
 | Cloud costs | Persisted, explicitly synthetic cost reports exist. Real billing ingestion and cloud optimization execution are planned. |
 
 Historical acceptance does not certify every later merge. AWS/Terraform/GitHub/Slack integration, arbitrary infrastructure actions and isolated fix-testing environments are outside the demonstrated workflow.
+
+## NVIDIA Nemotron and Nebius Token Factory
+
+The AI service defaults to the `nebius` provider and is configured for `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` through the Nebius Token Factory OpenAI-compatible endpoint. The exact model and endpoint are environment-configurable through `NEBIUS_MODEL` and `NEBIUS_BASE_URL`; live inference requires a real `NEBIUS_API_KEY` and is unavailable with the repository's mock default.
+
+Nemotron receives retained, bounded incident evidence rather than unrestricted cluster access. Its response is validated for known evidence citations and is represented as hypotheses with supporting references, gaps, and uncertainty. The model does not approve or execute changes: the API, scoped capability checks, atomic Kubernetes preconditions, and separate verification policy remain deterministic authorities. This repository makes no benchmark, latency, cost, or model-performance claim.
 
 ## Local workload and telemetry
 
@@ -77,5 +100,9 @@ docker compose -f compose.checks.yaml run --build --rm web-checks
 These are test commands, not a claim that the current revision passed them. See [development checks](docs/DEVELOPMENT.md#checks-and-contracts) for AI/MCP, formatting, generated contracts and browser tests.
 
 The [demo runbook](docs/DEMO_RUNBOOK.md) separates synthetic smoke, live investigation, approved restoration and independent recovery acceptance. It includes scripts that deliberately fault the owned sample. Keep writes disabled unless performing a reviewed, scoped trial.
+
+## Documentation and license
+
+The linked documentation index, security guide, Discord guide, and kind runbook below cover operational detail. No repository license has been selected yet: a contributor-approved open-source `LICENSE` must be added at the repository root before public submission. This documentation change does not select one unilaterally.
 
 [Documentation index](docs/README.md) · [Security](docs/SECURITY.md) · [Discord](docs/DISCORD_INTEGRATION.md) · [kind runbook](infra/kind/README.md)
